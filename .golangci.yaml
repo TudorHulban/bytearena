@@ -27,6 +27,7 @@ linters:
     - forcetypeassert
     - gochecknoglobals
     - gocognit
+    - gocritic
     - godoclint
     - godot
     - godox

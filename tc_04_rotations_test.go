@@ -3,6 +3,7 @@ package bytearena
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -101,7 +102,7 @@ func TestManyRotations(t *testing.T) {
 	chDone := make(chan struct{})
 
 	// Start producers
-	for p := range numProducers {
+	for producer := range numProducers {
 		go func(producerID int) {
 			defer wgProducers.Done()
 
@@ -127,15 +128,17 @@ func TestManyRotations(t *testing.T) {
 				} else {
 					failedWrites.Add(1)
 
-					// Log failure type for debugging
-					switch errWrite {
-					case ErrWriteMessageTooLarge:
-						// Expected sometimes with random sizes
-
-					case ErrWriteArenaFull:
-						// Expected during high pressure
-
-					default:
+					if errors.Is(errWrite, ErrWriteMessageTooLarge) {
+						t.Logf(
+							"Message too large - Expected sometimes with random sizes: %v",
+							errWrite,
+						)
+					} else if errors.Is(errWrite, ErrWriteArenaFull) {
+						t.Logf(
+							"Write arena full - Expected during high pressure: %v",
+							errWrite,
+						)
+					} else {
 						t.Logf("Unexpected error: %v", errWrite)
 					}
 				}
@@ -147,7 +150,7 @@ func TestManyRotations(t *testing.T) {
 					)
 				}
 			}
-		}(p)
+		}(producer)
 	}
 
 	// Wait for all producers to finish

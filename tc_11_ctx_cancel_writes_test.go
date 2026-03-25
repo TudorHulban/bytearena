@@ -390,16 +390,21 @@ func TestContextCancel_WithPendingWrites(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Grab 5 write regions in arena1 without releasing them yet —
-	// simulates in-flight producers that haven't called endWrite.
-	var regions []WriteRegion
+	noRegions := 5
 
-	for i := range 5 {
-		region, err := ingestor.beginWrite(50)
-		require.NoError(t, err)
+	// Grab write regions in arena1 without releasing them yet —
+	// simulates in-flight producers that haven't called endWrite.
+	regions := make([]WriteRegion, 0, noRegions+3+3)
+
+	for i := range noRegions {
+		region, errWrite := ingestor.beginWrite(50)
+		require.NoError(t, errWrite)
 
 		regions = append(regions, region)
-		copy(region.Buf(), []byte(fmt.Sprintf("pending-write-%d", i)))
+		copy(
+			region.Buf(),
+			[]byte(fmt.Sprintf("pending-write-%d", i)),
+		)
 	}
 
 	// Rotate: arena1 is now sealed with 5 unreleased writers.
