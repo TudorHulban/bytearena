@@ -1,0 +1,128 @@
+name: Tag Creation at Code Pull request
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  create-tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Detect docs-only PR
+        id: docscheck
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking changed files for PR #$PR_NUMBER"
+
+          # Fetch changed files
+          FILES=$(curl -s \
+            -H "Authorization: token $TOKEN" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files" \
+            | jq -r '.[].filename')
+
+          echo "Changed files:"
+          echo "$FILES"
+
+          DOCS_ONLY=true
+
+          for f in $FILES; do
+            case "$f" in
+              *.md)
+                # allowed docs-only patterns
+                ;;
+              *)
+                DOCS_ONLY=false
+                ;;
+            esac
+          done
+
+          echo "docs_only=$DOCS_ONLY" >> $GITHUB_OUTPUT
+
+      - name: Skip tag creation for docs-only PRs
+        if: steps.docscheck.outputs.docs_only == 'true'
+        run: |
+          echo "Docs-only PR detected. Skipping tag creation."
+
+      - name: Prepare tag creation
+        if: steps.docscheck.outputs.docs_only != 'true'
+        env:
+          COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Commit SHA: $COMMIT_SHA"
+          echo "PR number: $PR_NUMBER"
+          echo "PR title: $PR_TITLE"
+
+          echo "Fetching tags…"
+
+          # Fetch all tags, strip suffixes like _#123, and find highest base vX.Y.Z
+          LATEST_TAG=$(git ls-remote --tags --sort='v:refname' "https://github.com/${{ github.repository }}" \
+            | awk -F/ '{print $3}' \
+            | sed 's/+PR.*$//' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
+            | tail -n1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found. Starting at v0.0.0"
+            LATEST_TAG="v0.0.0"
+          fi
+
+          echo "Latest base tag: $LATEST_TAG"
+
+          # Parse version
+          MAJOR=$(echo "$LATEST_TAG" | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo "$LATEST_TAG" | cut -d. -f2)
+          PATCH=$(echo "$LATEST_TAG" | cut -d. -f3)
+
+          # Increment patch
+          NEW_PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}+PR${PR_NUMBER}"
+
+          echo "New tag: $NEW_TAG"
+
+          # Create annotated tag object
+          jq -n \
+            --arg tag "$NEW_TAG" \
+            --arg message "$PR_TITLE" \
+            --arg sha "$COMMIT_SHA" \
+            '{tag: $tag, message: $message, object: $sha, type: "commit"}' > tag_object.json
+
+          echo "Creating annotated tag object…"
+          TAG_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d @tag_object.json \
+            "https://api.github.com/repos/${{ github.repository }}/git/tags")
+
+          TAG_SHA=$(echo "$TAG_RESPONSE" | jq -r '.sha')
+
+          if [ "$TAG_SHA" = "null" ] || [ -z "$TAG_SHA" ]; then
+            echo "Failed to create tag object:"
+            echo "$TAG_RESPONSE"
+            exit 1
+          fi
+
+          echo "Tag object created: $TAG_SHA"
+
+          # Create reference pointing to the tag object
+          echo "Creating tag reference…"
+          REF_PAYLOAD=$(jq -n --arg ref "refs/tags/$NEW_TAG" --arg sha "$TAG_SHA" '{ref: $ref, sha: $sha}')
+
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "$REF_PAYLOAD" \
+            "https://api.github.com/repos/${{ github.repository }}/git/refs"
+
+          echo "Annotated tag created successfully: $NEW_TAG"

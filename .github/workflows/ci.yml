@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  j1_of_2-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make lint
+
+  j2_of_2-test:
+    runs-on: ubuntu-latest
+    needs: j1_of_2-lint
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
+
+  j_cleanup:
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y gh jq
+
+      - name: Keep only last N workflow runs
+        env:
+          KEEP_LAST: 1
+        run: |
+          gh workflow list --repo "$GITHUB_REPOSITORY" --json id --jq '.[].id' |
+          while read WF; do
+            echo "Workflow $WF"
+            
+            # Get all runs, sort by date (oldest first), skip the last KEEP_LAST
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$WF" \
+              --json databaseId,createdAt,headBranch \
+              --limit 200 \
+              --jq 'sort_by(.createdAt) | reverse | .[env.KEEP_LAST | tonumber:] | .[] | @base64' |
+            while read RUN; do
+              j() { echo "$RUN" | base64 --decode | jq -r "$1"; }
+              
+              ID=$(j '.databaseId')
+              CREATED=$(j '.createdAt')
+              BRANCH=$(j '.headBranch')
+              
+              echo "  Deleting run $ID (branch: $BRANCH, date: $CREATED)"
+              gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "  Failed to delete $ID (might already be gone)"
+            done
+          done
