@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  j1_of_2-lint:
+  job_1_of_2-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -23,10 +23,10 @@ jobs:
           go-version-file: go.mod
       - run: make lint
 
-  j2_of_2-test:
+  job_2_of_2-test:
     runs-on: ubuntu-latest
-    needs: j1_of_2-lint
-    timeout-minutes: 2
+    needs: job_1_of_2-lint
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -34,7 +34,7 @@ jobs:
           go-version-file: go.mod
       - run: make test
 
-  j_cleanup:
+  job_cleanup:
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -43,32 +43,21 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Install GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y gh jq
-
-      - name: Keep only last N workflow runs
+      - name: Keep only last N workflow runs for this branch
         env:
           KEEP_LAST: 1
+          # Get branch name: head_ref for PRs, ref_name for others
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
-          gh workflow list --repo "$GITHUB_REPOSITORY" --json id --jq '.[].id' |
-          while read WF; do
-            echo "Workflow $WF"
-            
-            # Get all runs, sort by date (oldest first), skip the last KEEP_LAST
-            gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow "$WF" \
-              --json databaseId,createdAt,headBranch \
-              --limit 200 \
-              --jq 'sort_by(.createdAt) | reverse | .[env.KEEP_LAST | tonumber:] | .[] | @base64' |
-            while read RUN; do
-              j() { echo "$RUN" | base64 --decode | jq -r "$1"; }
-              
-              ID=$(j '.databaseId')
-              CREATED=$(j '.createdAt')
-              BRANCH=$(j '.headBranch')
-              
-              echo "  Deleting run $ID (branch: $BRANCH, date: $CREATED)"
-              gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "  Failed to delete $ID (might already be gone)"
-            done
-          done
+          echo "Cleaning up branch: $BRANCH (Keeping last $KEEP_LAST runs)"
+
+          # 1. Fetch runs for this workflow + branch, sorted by newest first (default)
+          # 2. Slice the array to skip the first 'KEEP_LAST' items
+          # 3. Extract the IDs and delete them
+          gh run list \
+            --workflow "${{ github.workflow }}" \
+            --branch "$BRANCH" \
+            --json databaseId \
+            --limit 100 \
+            --jq ".[$KEEP_LAST:] | .[].databaseId" |
+          xargs -I{} gh run delete --repo "$GITHUB_REPOSITORY" "{}" || echo "No old runs to delete."
