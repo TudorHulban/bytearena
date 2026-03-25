@@ -37,27 +37,46 @@ jobs:
   job_cleanup:
     runs-on: ubuntu-latest
     if: always()
+    concurrency:
+      group: ${{ github.workflow }}-cleanup-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: false
     permissions:
       actions: write
       contents: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Keep only last N workflow runs for this branch
+      - name: Clean up old runs (keep last 1, min age 1 hour)
         env:
           KEEP_LAST: 1
-          # Get branch name: head_ref for PRs, ref_name for others
+          MIN_AGE_HOURS: 1
           BRANCH: ${{ github.head_ref || github.ref_name }}
+          CURRENT_RUN: ${{ github.run_id }}
         run: |
-          echo "Cleaning up branch: $BRANCH (Keeping last $KEEP_LAST runs)"
-
-          # 1. Fetch runs for this workflow + branch, sorted by newest first (default)
-          # 2. Slice the array to skip the first 'KEEP_LAST' items
-          # 3. Extract the IDs and delete them
+          echo "Cleaning up branch: $BRANCH"
+          echo "Keeping last $KEEP_LAST run(s)"
+          echo "Not deleting runs younger than $MIN_AGE_HOURS hour(s)"
+          echo "Current run ID: $CURRENT_RUN (will preserve)"
+          
+          # Get current time in Unix timestamp
+          CURRENT_TIME=$(date +%s)
+          MIN_AGE_SECONDS=$((MIN_AGE_HOURS * 3600))
+          
+          # Fetch runs with creation timestamps
           gh run list \
             --workflow "${{ github.workflow }}" \
             --branch "$BRANCH" \
-            --json databaseId \
-            --limit 100 \
-            --jq ".[$KEEP_LAST:] | .[].databaseId" |
+            --json databaseId,createdAt \
+            --limit 100 |
+          jq --argjson current_time "$CURRENT_TIME" \
+             --argjson min_age "$MIN_AGE_SECONDS" \
+             --argjson current_run "$CURRENT_RUN" \
+             --argjson keep_last "$KEEP_LAST" '
+            # Filter out current run and runs younger than min age
+            map(select(.databaseId != $current_run and 
+                       (($current_time - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdate)) >= $min_age))) |
+            # Sort by creation date (oldest first for proper slicing)
+            sort_by(.createdAt) |
+            # Keep only the oldest runs beyond KEEP_LAST
+            .[:-($keep_last)] | .[].databaseId' |
           xargs -I{} gh run delete --repo "$GITHUB_REPOSITORY" "{}" || echo "No old runs to delete."
