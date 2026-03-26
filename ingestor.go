@@ -27,6 +27,8 @@ type Ingestor struct {
 	// This is informational; consumer logic will use it.
 	sealed atomic.Pointer[arena]
 
+	telemetry ErrorsRegistry
+
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32

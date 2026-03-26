@@ -3,6 +3,7 @@ package bytearena_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,10 +29,14 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 	require.NoError(t, errWrite)
 	require.Equal(t, len(payload), bytesWritten)
 
+	ingestor.ReportTelemetry()
+
 	cancel()
 	<-chIngestionEnd
 
 	require.Contains(t, writer.String(), payload)
+
+	fmt.Println(writer.String())
 }
 
 func TestHowToUse_Directly(t *testing.T) {
