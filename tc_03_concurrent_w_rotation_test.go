@@ -33,15 +33,7 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 	// Start consumer with aggressive rotation
 	wgConsumer.Go(
 		func() {
-			ingestor.consumerLoop(
-				ctx,
-
-				func(a *arena) {
-					ingestor.waitForWriters(a)
-					ingestor.flushArena(a)
-					a.reset()
-				},
-			)
+			ingestor.consumerLoop(ctx)
 		},
 	)
 

@@ -5,7 +5,7 @@ package bytearena
 // - rotates if needed
 // - drains writers
 // - flushes sealed arena
-func (m *Ingestor) tick(flusher flusher) {
+func (m *Ingestor) tick() {
 	activeArena := m.active.Load()
 	if activeArena == nil {
 		return
@@ -24,7 +24,7 @@ func (m *Ingestor) tick(flusher flusher) {
 
 	used := min(sealedArena.cursor.Load(), int32(m.arenaSize)) //nolint:gosec
 	if used > 0 {
-		flusher(sealedArena)
+		m.flusher(sealedArena)
 	}
 
 	sealedArena.reset()

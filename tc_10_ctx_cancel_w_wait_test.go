@@ -35,13 +35,7 @@ func TestContextCancelDuringWait(t *testing.T) {
 	chConsumerExit := make(chan struct{})
 
 	go func() {
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				ingestor.flushArena(a)
-			},
-		)
+		ingestor.consumerLoop(ctx)
 
 		close(chConsumerExit)
 	}()
