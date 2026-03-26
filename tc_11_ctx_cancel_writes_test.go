@@ -81,16 +81,17 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 	}
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
 	// Start consumer with rotation tracking
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
+			ingestor.consumerLoop(ctx)
 
-		t.Log("Consumer loop exited")
-	}()
+			t.Log("Consumer loop exited")
+		},
+	)
 
 	// Wait for consumer to be ready
 	time.Sleep(10 * time.Millisecond)
@@ -295,14 +296,15 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
 	// Start consumer with instrumentation
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Start a producer that holds a write open
 	region, errWrite := ingestor.beginWrite(500)
@@ -449,13 +451,14 @@ func TestContextCancel_WithPendingWrites(t *testing.T) {
 
 	// Start consumer that will be cancelled
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Give consumer time to start
 	time.Sleep(10 * time.Millisecond)

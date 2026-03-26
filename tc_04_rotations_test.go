@@ -78,14 +78,15 @@ func TestManyRotations(t *testing.T) {
 	defer cancel()
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
 	// Start consumer with rotation tracking
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -269,7 +270,9 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 		rotationCount.Add(1)
 
 		cursorMutex.Lock()
+
 		cursorHistory = append(cursorHistory, a.cursor.Load())
+
 		cursorMutex.Unlock()
 
 		// Verify cursor never exceeds arena size
@@ -289,13 +292,14 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 	defer cancel()
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Single producer writing sequentially to make cursor behavior predictable
 	for i := range numRotations * 2 {

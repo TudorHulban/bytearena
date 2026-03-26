@@ -101,14 +101,15 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	defer cancel()
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
 	// Start consumer with monitoring
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -304,7 +305,7 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	var (
 		metrics       []rotationMetrics
 		metricsMutex  sync.Mutex
-		rotationIndex int32 = 0
+		rotationIndex int32
 	)
 
 	ingestor.flusher = func(a *arena) {
@@ -329,13 +330,14 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	defer cancel()
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			defer wgConsumer.Done()
 
-		ingestor.consumerLoop(ctx)
-	}()
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
