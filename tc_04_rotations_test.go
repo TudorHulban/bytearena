@@ -82,8 +82,6 @@ func TestManyRotations(t *testing.T) {
 	// Start consumer with rotation tracking
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)
@@ -295,8 +293,6 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)

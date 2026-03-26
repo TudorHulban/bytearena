@@ -85,8 +85,6 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 	// Start consumer with rotation tracking
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 
 			t.Log("Consumer loop exited")
@@ -300,8 +298,6 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 	// Start consumer with instrumentation
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)
@@ -454,8 +450,6 @@ func TestContextCancel_WithPendingWrites(t *testing.T) {
 
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)

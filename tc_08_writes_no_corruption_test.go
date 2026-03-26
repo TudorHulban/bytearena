@@ -45,9 +45,6 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
 	// Consumer with validation
 	go func() {
 		for line := range chValidation {
@@ -58,11 +55,13 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		defer wgConsumer.Done()
+	var wgConsumer sync.WaitGroup
 
-		ingestor.consumerLoop(ctx)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 

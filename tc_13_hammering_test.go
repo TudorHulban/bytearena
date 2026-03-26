@@ -105,8 +105,6 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	// Start consumer with monitoring
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)
@@ -333,8 +331,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 
 	wgConsumer.Go(
 		func() {
-			defer wgConsumer.Done()
-
 			ingestor.consumerLoop(ctx)
 		},
 	)
