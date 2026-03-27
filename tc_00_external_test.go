@@ -29,7 +29,9 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 	require.NoError(t, errWrite)
 	require.Equal(t, len(payload), bytesWritten)
 
-	ingestor.ReportTelemetry()
+	reporter := ingestor
+
+	ingestor.Telemetry(reporter)
 
 	cancel()
 	<-chIngestionEnd

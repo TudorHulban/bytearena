@@ -2,15 +2,13 @@ package bytearena
 
 import "encoding/json"
 
-func (m *Ingestor) ReportTelemetry() {
-	drops := m.telemetry.Snapshot()
+var _ Reporter = &Ingestor{}
+
+func (m *Ingestor) GetDrops(drops map[string]uint64) {
 	if len(drops) == 0 {
 		return
 	}
 
-	// Because this is the consumer/telemetry thread, we can use
-	// standard JSON encoding or your Sprintf helpers without
-	// affecting the Producers' latency.
 	logEntry, _ := json.Marshal(
 		map[string]any{
 			"level":  "warn",
@@ -20,4 +18,10 @@ func (m *Ingestor) ReportTelemetry() {
 	)
 
 	_, _ = m.writer.Write(append(logEntry, '\n'))
+}
+
+func (m *Ingestor) Telemetry(reporter Reporter) {
+	reporter.GetDrops(
+		m.telemetry.Snapshot(),
+	)
 }
