@@ -443,83 +443,47 @@ func BenchmarkConcurrentProducersFixedTime(b *testing.B) {
 }
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkContentionScaling/arena_102400_producers_4-16         	       1	3000114792 ns/op	  12421229 writes/sec	  226368 B/op	      98 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_4-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 4 producers: 12421229 writes/sec
-// BenchmarkContentionScaling/arena_102400_producers_8-16         	       1	3000068543 ns/op	  13568655 writes/sec	  251328 B/op	     134 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_8-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 8 producers: 13568655 writes/sec
-// BenchmarkContentionScaling/arena_102400_producers_16-16        	       1	3003305779 ns/op	    203214 writes/sec	  261600 B/op	     223 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_16-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 16 producers: 203214 writes/sec
-// BenchmarkContentionScaling/arena_102400_producers_32-16        	       1	3010559197 ns/op	    107526 writes/sec	  240000 B/op	     154 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_32-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 32 producers: 107526 writes/sec
-// BenchmarkContentionScaling/arena_102400_producers_64-16        	       1	3010862042 ns/op	     48976 writes/sec	  256576 B/op	     241 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_64-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 64 producers: 48976 writes/sec
-// BenchmarkContentionScaling/arena_102400_producers_128-16       	       1	3000304912 ns/op	     24583 writes/sec	  290176 B/op	     428 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_102400_producers_128-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 102400, 128 producers: 24583 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_4-16         	       1	3001056539 ns/op	  14533595 writes/sec	 1039808 B/op	      62 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_4-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 4 producers: 14533595 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_8-16         	       1	3000346702 ns/op	  16381340 writes/sec	 1044512 B/op	      81 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_8-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 8 producers: 16381340 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_16-16        	       1	3007355857 ns/op	   1014731 writes/sec	 1049456 B/op	     162 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_16-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 16 producers: 1014731 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_32-16        	       1	3007442521 ns/op	    599276 writes/sec	 1061600 B/op	     148 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_32-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 32 producers: 599276 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_64-16        	       1	3005853605 ns/op	    245293 writes/sec	 1075056 B/op	     241 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_64-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 64 producers: 245293 writes/sec
-// BenchmarkContentionScaling/arena_512000_producers_128-16       	       1	3004266162 ns/op	    102344 writes/sec	 1100144 B/op	     408 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_512000_producers_128-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 512000, 128 producers: 102344 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_4-16        	       1	3000801836 ns/op	  14736966 writes/sec	 2104608 B/op	      59 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_4-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 4 producers: 14736966 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_8-16        	       1	3000228658 ns/op	  16727010 writes/sec	 2106432 B/op	      67 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_8-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 8 producers: 16727010 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_16-16       	       1	3010195768 ns/op	   2062256 writes/sec	 2111968 B/op	     140 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_16-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 16 producers: 2062256 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_32-16       	       1	3011353465 ns/op	   1156107 writes/sec	 2116672 B/op	     135 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_32-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 32 producers: 1156107 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_64-16       	       1	3008574500 ns/op	    460072 writes/sec	 2140752 B/op	     241 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_64-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 64 producers: 460072 writes/sec
-// BenchmarkContentionScaling/arena_1048576_producers_128-16      	       1	3004602480 ns/op	    279202 writes/sec	 2178576 B/op	     420 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_1048576_producers_128-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 1048576, 128 producers: 279202 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_4-16        	       1	3001076427 ns/op	  14834113 writes/sec	 4201648 B/op	      58 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_4-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 4 producers: 14834113 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_8-16        	       1	3000669314 ns/op	  16862778 writes/sec	 4201664 B/op	      63 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_8-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 8 producers: 16862778 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_16-16       	       1	3013953260 ns/op	   4147448 writes/sec	 4211216 B/op	     158 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_16-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 16 producers: 4147448 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_32-16       	       1	3004219924 ns/op	   2429441 writes/sec	 4203808 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_32-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 32 producers: 2429441 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_64-16       	       1	3004788583 ns/op	   1005093 writes/sec	 4206592 B/op	     175 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_64-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 64 producers: 1005093 writes/sec
-// BenchmarkContentionScaling/arena_2097152_producers_128-16      	       1	3005292450 ns/op	    474551 writes/sec	 4250624 B/op	     383 allocs/op
-// --- BENCH: BenchmarkContentionScaling/arena_2097152_producers_128-16
-//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:497: Arena 2097152, 128 producers: 474551 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_102400_producers_4-16         	       1	3000071831 ns/op	  12320486 writes/sec	  227136 B/op	     103 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_102400_producers_4-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 102400, 4 producers: 12320486 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_102400_producers_8-16         	       1	3000146442 ns/op	  13533943 writes/sec	  251408 B/op	     136 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_102400_producers_8-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 102400, 8 producers: 13533943 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_102400_producers_16-16        	       1	3001758072 ns/op	    204685 writes/sec	  255848 B/op	     213 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_102400_producers_16-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 102400, 16 producers: 204685 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_512000_producers_4-16         	       1	3000284374 ns/op	  14640197 writes/sec	 1041104 B/op	      60 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_512000_producers_4-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 512000, 4 producers: 14640197 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_512000_producers_8-16         	       1	3000283993 ns/op	  16415015 writes/sec	 1045040 B/op	      74 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_512000_producers_8-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 512000, 8 producers: 16415015 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_512000_producers_16-16        	       1	3001742733 ns/op	   1009852 writes/sec	 1054848 B/op	     155 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_512000_producers_16-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 512000, 16 producers: 1009852 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_1048576_producers_4-16        	       1	3000600935 ns/op	  14785435 writes/sec	 2105600 B/op	      58 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_1048576_producers_4-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 1048576, 4 producers: 14785435 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_1048576_producers_8-16        	       1	3000879784 ns/op	  16735212 writes/sec	 2106768 B/op	      70 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_1048576_producers_8-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 1048576, 8 producers: 16735212 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_1048576_producers_16-16       	       1	3014321808 ns/op	   2087402 writes/sec	 2126344 B/op	     169 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_1048576_producers_16-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 1048576, 16 producers: 2087402 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_2097152_producers_4-16        	       1	3001084163 ns/op	  14973328 writes/sec	 4203232 B/op	      59 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_2097152_producers_4-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 2097152, 4 producers: 14973328 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_2097152_producers_8-16        	       1	3000699132 ns/op	  17028262 writes/sec	 4204064 B/op	      68 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_2097152_producers_8-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 2097152, 8 producers: 17028262 writes/sec
+// BenchmarkContentionScalingTo16Producers/arena_2097152_producers_16-16       	       1	3014246946 ns/op	   4091374 writes/sec	 4219344 B/op	     178 allocs/op
+// --- BENCH: BenchmarkContentionScalingTo16Producers/arena_2097152_producers_16-16
+//     /home/tudi/ram/bytearena/tc_16_32_producers_test.go:573: Arena 2097152, 16 producers: 4091374 writes/sec
 
 // BenchmarkContentionScaling measures how contention affects throughput
 // by varying both producers and arena size.
-func BenchmarkContentionScaling(b *testing.B) {
-	producerCounts := []int{4, 8, 16, 32, 64, 128}
+func BenchmarkContentionScalingTo16Producers(b *testing.B) {
+	producerCounts := []int{4, 8, 16}
 	arenaSizes := []int{Size100K, Size500K, Size1M, Size2M}
 
 	for _, arenaSize := range arenaSizes {
@@ -531,6 +495,119 @@ func BenchmarkContentionScaling(b *testing.B) {
 
 					ingestor, err := NewIngestor(uint32(arenaSize), writer)
 					require.NoError(b, err)
+
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+					defer cancel()
+
+					chIngestionEnd := ingestor.StartIngestion(ctx)
+
+					payload := []byte("benchmark-payload-32bytes")
+
+					var wgProducers sync.WaitGroup
+					var writesCompleted atomic.Int64
+
+					startTime := time.Now()
+
+					for range numProducers {
+						wgProducers.Go(
+							func() {
+								for {
+									select {
+									case <-ctx.Done():
+										return
+									default:
+										if _, err := ingestor.Write(payload); err == nil {
+											writesCompleted.Add(1)
+										}
+									}
+								}
+							},
+						)
+					}
+
+					<-ctx.Done()
+					cancel()
+					wgProducers.Wait()
+					<-chIngestionEnd
+
+					elapsed := time.Since(startTime)
+					writesPerSec := float64(writesCompleted.Load()) / elapsed.Seconds()
+
+					b.ReportMetric(writesPerSec, "writes/sec")
+					b.Logf(
+						"Arena %d, %d producers: %.0f writes/sec",
+						arenaSize,
+						numProducers,
+						writesPerSec,
+					)
+				},
+			)
+		}
+	}
+}
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkContentionScaling32To128Producers/arena_2097152_producers_32-16         	       1	3014092703 ns/op	   3173263 writes/sec	 4266832 B/op	     221 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_2097152_producers_32-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 2097152, 32 producers: 3173263 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_2097152_producers_64-16         	       1	3005374389 ns/op	   1060740 writes/sec	 4238800 B/op	     248 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_2097152_producers_64-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 2097152, 64 producers: 1060740 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_2097152_producers_128-16        	       1	3003940376 ns/op	   1033312 writes/sec	 4274384 B/op	     435 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_2097152_producers_128-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 2097152, 128 producers: 1033312 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_4194304_producers_32-16         	       1	3005546315 ns/op	   4689553 writes/sec	 8411712 B/op	     154 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_4194304_producers_32-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 4194304, 32 producers: 4689553 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_4194304_producers_64-16         	       1	3004578668 ns/op	   1954660 writes/sec	 8442552 B/op	     249 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_4194304_producers_64-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 4194304, 64 producers: 1954660 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_4194304_producers_128-16        	       1	3006361213 ns/op	   1060715 writes/sec	 8460672 B/op	     419 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_4194304_producers_128-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 4194304, 128 producers: 1060715 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_8388608_producers_32-16         	       1	3006422168 ns/op	   7368554 writes/sec	16798176 B/op	     147 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_8388608_producers_32-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 8388608, 32 producers: 7368554 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_8388608_producers_64-16         	       1	3024879755 ns/op	   3662192 writes/sec	16820816 B/op	     241 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_8388608_producers_64-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 8388608, 64 producers: 3662192 writes/sec
+//
+// BenchmarkContentionScaling32To128Producers/arena_8388608_producers_128-16        	       1	3007655760 ns/op	   1785802 writes/sec	16865712 B/op	     437 allocs/op
+// --- BENCH: BenchmarkContentionScaling32To128Producers/arena_8388608_producers_128-16
+//
+//	/home/tudi/ram/bytearena/tc_16_32_producers_test.go:605: Arena 8388608, 128 producers: 1785802 writes/sec
+func BenchmarkContentionScaling32To128Producers(b *testing.B) {
+	producerCounts := []int{32, 64, 128}
+	arenaSizes := []int{Size2M, Size4M, Size8M, Size16M}
+
+	for _, arenaSize := range arenaSizes {
+		for _, numProducers := range producerCounts {
+			b.Run(
+				fmt.Sprintf("arena_%d_producers_%d", arenaSize, numProducers),
+				func(b *testing.B) {
+					writer := &helpers.NoopWriter{}
+
+					ingestor, errCrIngestor := NewIngestor(
+						uint32(arenaSize),
+						writer,
+						WithSealPercentage(97),
+					)
+					require.NoError(b, errCrIngestor)
 
 					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 					defer cancel()
