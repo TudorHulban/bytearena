@@ -68,20 +68,32 @@ jobs:
             gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow "$WF" \
-              --json databaseId,createdAt,headBranch \
+              --json databaseId,createdAt,headBranch,displayTitle \
               --limit 200 |
             jq --arg branch "$BRANCH" \
                --argjson current_time "$CURRENT_TIME" \
                --argjson min_age "$MIN_AGE_SECONDS" \
                --argjson current_run "$CURRENT_RUN" \
                --argjson keep_last "$KEEP_LAST" '
+              # Normalize branch name
+              map(
+                .normalizedBranch =
+                  if .headBranch != null then .headBranch
+                  elif (.displayTitle | test("\\(")) then
+                    (.displayTitle | capture(".*\\((?<b>.*)\\)") | .b)
+                  else null end
+              )
+              |
+              # Filter runs
               map(select(
-                .headBranch == $branch and
+                .normalizedBranch == $branch and
                 .databaseId != $current_run and
                 (($current_time - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdate)) >= $min_age)
-              )) |
-              sort_by(.createdAt) |
-              reverse |
+              ))
+              |
+              # Sort newest → oldest
+              sort_by(.createdAt) | reverse |
+              # Skip the newest KEEP_LAST runs
               .[$keep_last:] |
               .[] |
               @base64' |
@@ -90,7 +102,7 @@ jobs:
 
               ID=$(j '.databaseId')
               CREATED=$(j '.createdAt')
-              RUN_BRANCH=$(j '.headBranch')
+              RUN_BRANCH=$(j '.normalizedBranch')
 
               echo "  Deleting run $ID (branch: $RUN_BRANCH, date: $CREATED)"
               gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "  Failed to delete $ID"
