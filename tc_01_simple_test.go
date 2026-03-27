@@ -18,7 +18,7 @@ import (
 func Test_01_a_Error_NoIngestionStart(t *testing.T) {
 	var sink bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(Size100K, &sink)
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &sink)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 

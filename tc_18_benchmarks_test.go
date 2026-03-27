@@ -74,7 +74,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 func BenchmarkIngestor_Write(b *testing.B) {
 	writer := helpers.CountWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(Size1M, &writer)
+	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -111,7 +111,7 @@ func BenchmarkIngestor_Write(b *testing.B) {
 func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	writer := helpers.CountWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(Size100K, &writer)
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -162,7 +162,7 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 // BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-16      	68408236	        17.40 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
-	sizesArena := []int{Size100K, Size500K, Size1M}
+	sizesArena := []uint32{Size100K(), Size500K(), Size1M()}
 
 	for _, sizeArena := range sizesArena {
 		for _, sizeMessage := range sizesMessage {
@@ -175,7 +175,7 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 
 				func(b *testing.B) {
 					ingestor, errCrIngestor := NewIngestor(
-						uint32(sizeArena),
+						sizeArena,
 						&helpers.NoopWriter{},
 					)
 					require.NoError(b, errCrIngestor)

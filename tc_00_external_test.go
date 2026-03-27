@@ -14,7 +14,7 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 	writer := bytes.Buffer{}
 
 	ingestor, errCrIngestor := bytearena.NewIngestor(
-		bytearena.Size100K,
+		bytearena.Size100K(),
 		&writer,
 	)
 	require.NoError(t, errCrIngestor)
@@ -45,7 +45,7 @@ func TestHowToUse_Directly(t *testing.T) {
 	writer := bytes.Buffer{}
 
 	ingestor, errCrIngestor := bytearena.NewIngestor(
-		bytearena.Size100K,
+		bytearena.Size100K(),
 		&writer,
 	)
 	require.NoError(t, errCrIngestor)
