@@ -46,20 +46,20 @@ jobs:
       - name: Install GitHub CLI
         run: sudo apt-get update && sudo apt-get install -y gh jq
 
-      - name: Keep only last N workflow runs (per branch, with min age)
+      - name: Cleanup old workflow runs (branch‑scoped, max age, keep N newest)
         env:
           KEEP_LAST: 1
-          MIN_AGE_HOURS: 1
+          MAX_AGE_HOURS: 2
           BRANCH: ${{ github.head_ref || github.ref_name }}
           CURRENT_RUN: ${{ github.run_id }}
         run: |
           echo "Branch: $BRANCH"
           echo "Keep last: $KEEP_LAST"
-          echo "Min age (hours): $MIN_AGE_HOURS"
+          echo "Max age (hours): $MAX_AGE_HOURS"
           echo "Current run: $CURRENT_RUN"
 
           CURRENT_TIME=$(date +%s)
-          MIN_AGE_SECONDS=$((MIN_AGE_HOURS * 3600))
+          MAX_AGE_SECONDS=$((MAX_AGE_HOURS * 3600))
 
           gh workflow list --repo "$GITHUB_REPOSITORY" --json id --jq '.[].id' |
           while read WF; do
@@ -74,10 +74,9 @@ jobs:
             echo "=== ALL RUNS FOUND ==="
             echo "$ALL_RUNS" | jq -r '.[] | "\(.databaseId)  \(.createdAt)  \(.headBranch)  \(.displayTitle)"'
 
-            FILTERED=$(echo "$ALL_RUNS" |
+            # Normalize branch and filter by branch (excluding current run)
+            BRANCH_RUNS=$(echo "$ALL_RUNS" |
               jq --arg branch "$BRANCH" \
-                 --argjson current_time "$CURRENT_TIME" \
-                 --argjson min_age "$MIN_AGE_SECONDS" \
                  --argjson current_run "$CURRENT_RUN" '
                 map(
                   .normalizedBranch =
@@ -86,35 +85,59 @@ jobs:
                       (.displayTitle | capture(".*\\((?<b>.*)\\)") | .b)
                     else null end
                 )
-                |
+                | map(select(.normalizedBranch == $branch and .databaseId != $current_run))
+              ')
+
+            echo "=== RUNS FOR BRANCH (UNSORTED) ==="
+            echo "$BRANCH_RUNS" | jq -r '.[]? | "\(.databaseId)  \(.createdAt)"'
+
+            # Sort newest → oldest
+            SORTED=$(echo "$BRANCH_RUNS" |
+              jq 'sort_by(.createdAt) | reverse')
+
+            echo "=== SORTED NEWEST → OLDEST ==="
+            echo "$SORTED" | jq -r '.[]? | "\(.databaseId)  \(.createdAt)"'
+
+            # Select runs whose age <= MAX_AGE
+            WITHIN_MAX_AGE=$(echo "$SORTED" |
+              jq --argjson current_time "$CURRENT_TIME" \
+                 --argjson max_age "$MAX_AGE_SECONDS" '
                 map(select(
-                  .normalizedBranch == $branch and
-                  .databaseId != $current_run and
-                  (($current_time - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdate)) >= $min_age)
+                  ($current_time - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdate)) <= $max_age
                 ))
               ')
 
-            echo "=== RUNS MATCHING BRANCH + AGE FILTER ==="
-            echo "$FILTERED" | jq -r '.[] | "\(.databaseId)  \(.createdAt)  \(.normalizedBranch)"'
+            echo "=== RUNS WITHIN MAX AGE ==="
+            echo "$WITHIN_MAX_AGE" | jq -r '.[]? | "\(.databaseId)  \(.createdAt)"'
 
-            TO_DELETE=$(echo "$FILTERED" |
-              jq --argjson keep_last "$KEEP_LAST" '
-                sort_by(.createdAt) | reverse | .[$keep_last:]
+            # Keep at most KEEP_LAST newest within max age
+            KEPT=$(echo "$WITHIN_MAX_AGE" |
+              jq --argjson keep_last "$KEEP_LAST" '.[0:$keep_last]')
+
+            echo "=== RUNS KEPT (NEWEST WITHIN MAX AGE, LIMIT KEEP_LAST) ==="
+            echo "$KEPT" | jq -r '.[]? | "\(.databaseId)  \(.createdAt)"'
+
+            # Everything else is deleted:
+            # - runs older than MAX_AGE
+            # - runs within MAX_AGE but beyond KEEP_LAST
+            TO_DELETE=$(jq -n \
+              --argjson sorted "$SORTED" \
+              --argjson kept "$KEPT" '
+                $sorted - $kept
               ')
 
             echo "=== RUNS SELECTED FOR DELETION ==="
-            echo "$TO_DELETE" | jq -r '.[] | "\(.databaseId)  \(.createdAt)  \(.normalizedBranch)"'
+            echo "$TO_DELETE" | jq -r '.[]? | "\(.databaseId)  \(.createdAt)"'
 
             echo "$TO_DELETE" |
-              jq -r '.[] | @base64' |
+              jq -r '.[]? | @base64' |
               while read RUN; do
                 j() { echo "$RUN" | base64 --decode | jq -r "$1"; }
 
                 ID=$(j '.databaseId')
                 CREATED=$(j '.createdAt')
-                RUN_BRANCH=$(j '.normalizedBranch')
 
-                echo "  Deleting run $ID (branch: $RUN_BRANCH, date: $CREATED)"
+                echo "  Deleting run $ID (date: $CREATED)"
                 gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "  Failed to delete $ID"
               done
           done
