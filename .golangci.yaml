@@ -177,9 +177,11 @@ linters:
         - name: var-naming 
           disabled: true
 
+    # check in .linting with ./golangci-lint linters | grep modernize -A 20
     modernize:
-      disable:
+        disable:
           - fmtappendf
+          - minmax
 
     wsl_v5:
       allow-first-in-block: true
