@@ -52,6 +52,7 @@ jobs:
           MIN_AGE_HOURS: 1
           BRANCH: ${{ github.head_ref || github.ref_name }}
           CURRENT_RUN: ${{ github.run_id }}
+
         run: |
           echo "Cleaning up branch: $BRANCH"
           echo "Keeping last $KEEP_LAST run(s)"
@@ -64,6 +65,7 @@ jobs:
           
           # Fetch runs with creation timestamps
           gh run list \
+            --repo "$GITHUB_REPOSITORY" \
             --workflow "${{ github.workflow }}" \
             --branch "$BRANCH" \
             --json databaseId,createdAt \

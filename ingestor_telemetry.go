@@ -2,9 +2,7 @@ package bytearena
 
 import "encoding/json"
 
-var _ Reporter = &Ingestor{}
-
-func (m *Ingestor) GetDrops(drops map[string]uint64) {
+func (m *Ingestor) ReportDrops(drops map[string]uint64) {
 	if len(drops) == 0 {
 		return
 	}
@@ -21,7 +19,7 @@ func (m *Ingestor) GetDrops(drops map[string]uint64) {
 }
 
 func (m *Ingestor) Telemetry(reporter Reporter) {
-	reporter.GetDrops(
+	reporter.ReportDrops(
 		m.telemetry.Snapshot(),
 	)
 }
