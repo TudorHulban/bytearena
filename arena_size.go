@@ -27,6 +27,7 @@ func (fn Size) String() string {
 		return fmt.Sprintf("%dK", val/(1<<10))
 	case val >= 100<<10:
 		return fmt.Sprintf("%dK", val/(1<<10))
+
 	default:
 		return fmt.Sprintf("%d", val)
 	}
