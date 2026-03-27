@@ -23,13 +23,27 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	chValidation := make(chan string, 10000)
+
+	ingestor.flusher = func(a *arena) {
+		// Capture output for validation
+		data := a.buf[:a.cursor.Load()]
+
+		scanner := bufio.NewScanner(bytes.NewReader(data))
+		for scanner.Scan() {
+			line := string(scanner.Bytes())
+
+			if line != "" {
+				chValidation <- line
+			}
+		}
+
+		ingestor.flushArena(a)
+		a.reset()
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
-	chValidation := make(chan string, 10000)
 
 	// Consumer with validation
 	go func() {
@@ -41,30 +55,13 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		defer wgConsumer.Done()
+	var wgConsumer sync.WaitGroup
 
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				// Capture output for validation
-				data := a.buf[:a.cursor.Load()]
-
-				scanner := bufio.NewScanner(bytes.NewReader(data))
-				for scanner.Scan() {
-					line := string(scanner.Bytes())
-
-					if line != "" {
-						chValidation <- line
-					}
-				}
-
-				ingestor.flushArena(a)
-				a.reset()
-			},
-		)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 

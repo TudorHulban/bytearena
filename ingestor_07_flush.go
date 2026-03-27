@@ -2,8 +2,6 @@ package bytearena
 
 import "context"
 
-type flusher func(a *arena)
-
 // Flush sealed arena contents using the provided writer function.
 //
 // The writer receives:
@@ -46,7 +44,7 @@ func (m *Ingestor) flushArena(a *arena) {
 }
 
 // flushOnShutdown flushes both arenas best-effort.
-func (m *Ingestor) flushOnShutdown(ctx context.Context, flusher flusher) {
+func (m *Ingestor) flushOnShutdown(ctx context.Context) {
 	// First rotation: seal whatever is currently active (call it A).
 	firstSealed := m.rotate()
 
@@ -62,7 +60,7 @@ func (m *Ingestor) flushOnShutdown(ctx context.Context, flusher flusher) {
 
 		used := secondSealed.cursor.Load()
 		if used > 0 {
-			flusher(secondSealed)
+			m.flusher(secondSealed)
 		}
 	}
 
@@ -72,7 +70,7 @@ func (m *Ingestor) flushOnShutdown(ctx context.Context, flusher flusher) {
 
 		used := firstSealed.cursor.Load()
 		if used > 0 {
-			flusher(firstSealed)
+			m.flusher(firstSealed)
 		}
 	}
 }

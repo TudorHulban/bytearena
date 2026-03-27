@@ -10,7 +10,8 @@ import (
 // Ingestor owns the two arenas and coordinates which one is active.
 // It also handles the rotation and flush on context cancellation.
 type Ingestor struct {
-	writer io.Writer
+	writer  io.Writer
+	flusher func(a *arena)
 
 	chFlush chan struct{}
 
@@ -26,6 +27,8 @@ type Ingestor struct {
 	// This is informational; consumer logic will use it.
 	sealed atomic.Pointer[arena]
 
+	telemetry ErrorsRegistry
+
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32
@@ -35,6 +38,10 @@ type Ingestor struct {
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
 	result := Ingestor{
+		writer: w,
+
+		chFlush: make(chan struct{}, 1),
+
 		arenaFirst: &arena{
 			buf: make([]byte, arenaSize),
 		},
@@ -44,10 +51,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		arenaSize:           arenaSize,
 		arenaSealPercentage: 90,
-		writer:              w,
-
-		chFlush: make(chan struct{}, 1),
 	}
+
+	result.flusher = result.flushArena
 
 	for _, option := range options {
 		if errOption := option(&result); errOption != nil {
@@ -75,13 +81,7 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 	go func() {
 		defer close(chIngestionEnd)
 
-		m.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				m.flushArena(a)
-			},
-		)
+		m.consumerLoop(ctx)
 	}()
 
 	return chIngestionEnd
@@ -92,24 +92,26 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 // flushes it, and resets it.
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
-func (m *Ingestor) consumerLoop(ctx context.Context, flusher flusher) {
+func (m *Ingestor) consumerLoop(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
+	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			m.flushOnShutdown(ctx, flusher)
+			m.flushOnShutdown(ctx)
 
 			return
 
 		case <-ticker.C:
-			m.tick(flusher)
+			m.tick()
 
 			// consumerLoop gets a third case:
 		case <-m.chFlush:
-			m.tick(flusher) // same seal/wait/flush/reset as ticker path
+			m.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
 }

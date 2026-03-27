@@ -15,7 +15,7 @@ import (
 // Verifies: Ingestion is not automatically started,
 // it should started for correct operation.
 
-func TestError_NoIngestionStart(t *testing.T) {
+func Test_01_a_Error_NoIngestionStart(t *testing.T) {
 	var sink bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(Size100K, &sink)
@@ -35,7 +35,7 @@ func TestError_NoIngestionStart(t *testing.T) {
 	require.NotContains(t, sink.String(), payload)
 }
 
-func TestIngestor_SingleWrite(t *testing.T) {
+func Test_01_b_Ingestor_SingleWrite(t *testing.T) {
 	var out bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(1024, &out)

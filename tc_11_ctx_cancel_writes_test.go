@@ -32,13 +32,6 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
-	// Create a cancellable context for the consumer
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
 	// Track metrics
 	var (
 		rotationCount   atomic.Int32
@@ -51,48 +44,52 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 	// Channel to signal when we have hit target rotations.
 	chDone := make(chan struct{})
 
+	// Create a cancellable context for the consumer
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ingestor.flusher = func(a *arena) {
+		// Count this rotation
+		rotations := rotationCount.Add(1)
+
+		// Track flushed bytes
+		flushedBytes.Add(int64(a.cursor.Load()))
+
+		// Log progress periodically
+		if rotations%100 == 0 {
+			t.Logf(
+				"Rotation %d: flushed %d bytes",
+				rotations,
+				a.cursor.Load(),
+			)
+		}
+
+		ingestor.flushArena(a)
+		a.reset()
+
+		// When we hit target rotations, trigger shutdown
+		if rotations >= targetRotations && !shutdownStarted.Load() {
+			shutdownStarted.Store(true)
+			t.Logf(
+				"Target rotations (%d) reached, initiating shutdown",
+				targetRotations,
+			)
+
+			close(chDone)
+			cancel() // Cancel context to trigger shutdown
+		}
+	}
+
+	var wgConsumer sync.WaitGroup
+
 	// Start consumer with rotation tracking
-	go func() {
-		defer wgConsumer.Done()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
 
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				// Count this rotation
-				rotations := rotationCount.Add(1)
-
-				// Track flushed bytes
-				flushedBytes.Add(int64(a.cursor.Load()))
-
-				// Log progress periodically
-				if rotations%100 == 0 {
-					t.Logf(
-						"Rotation %d: flushed %d bytes",
-						rotations,
-						a.cursor.Load(),
-					)
-				}
-
-				ingestor.flushArena(a)
-				a.reset()
-
-				// When we hit target rotations, trigger shutdown
-				if rotations >= targetRotations && !shutdownStarted.Load() {
-					shutdownStarted.Store(true)
-					t.Logf(
-						"Target rotations (%d) reached, initiating shutdown",
-						targetRotations,
-					)
-
-					close(chDone)
-					cancel() // Cancel context to trigger shutdown
-				}
-			},
-		)
-
-		t.Log("Consumer loop exited")
-	}()
+			t.Log("Consumer loop exited")
+		},
+	)
 
 	// Wait for consumer to be ready
 	time.Sleep(10 * time.Millisecond)
@@ -268,12 +265,6 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
-	// Create context that will be cancelled mid-rotation
-	ctx, cancel := context.WithCancel(context.Background())
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
 	// Track rotation phases
 	var (
 		rotationStarted   atomic.Bool
@@ -281,32 +272,35 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 		flusherCalled     atomic.Bool
 	)
 
-	// Start consumer with instrumentation
-	go func() {
-		defer wgConsumer.Done()
+	ingestor.flusher = func(a *arena) {
+		rotationStarted.Store(true)
+		flusherCalled.Store(true)
 
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				rotationStarted.Store(true)
-				flusherCalled.Store(true)
-
-				t.Logf(
-					"Flusher called with %d bytes",
-					a.cursor.Load(),
-				)
-
-				// Simulate slow flush
-				time.Sleep(50 * time.Millisecond)
-
-				ingestor.flushArena(a)
-				a.reset()
-
-				rotationCompleted.Store(true)
-			},
+		t.Logf(
+			"Flusher called with %d bytes",
+			a.cursor.Load(),
 		)
-	}()
+
+		// Simulate slow flush
+		time.Sleep(50 * time.Millisecond)
+
+		ingestor.flushArena(a)
+		a.reset()
+
+		rotationCompleted.Store(true)
+	}
+
+	// Create context that will be cancelled mid-rotation
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wgConsumer sync.WaitGroup
+
+	// Start consumer with instrumentation
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Start a producer that holds a write open
 	region, errWrite := ingestor.beginWrite(500)
@@ -388,6 +382,20 @@ func TestContextCancel_WithPendingWrites(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	flusherCallCount := atomic.Int32{}
+
+	ingestor.flusher = func(a *arena) {
+		flusherCallCount.Add(1)
+
+		t.Logf(
+			"Flusher called for arena with %d bytes",
+			a.cursor.Load(),
+		)
+
+		ingestor.flushArena(a)
+		a.reset()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	noRegions := 5
@@ -439,29 +447,12 @@ func TestContextCancel_WithPendingWrites(t *testing.T) {
 
 	// Start consumer that will be cancelled
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
-	flusherCallCount := atomic.Int32{}
-
-	go func() {
-		defer wgConsumer.Done()
-
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				flusherCallCount.Add(1)
-
-				t.Logf(
-					"Flusher called for arena with %d bytes",
-					a.cursor.Load(),
-				)
-
-				ingestor.flushArena(a)
-				a.reset()
-			},
-		)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Give consumer time to start
 	time.Sleep(10 * time.Millisecond)

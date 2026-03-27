@@ -11,8 +11,9 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
+// All benchmarks were done on Rocky 10.
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16    	84908293	        13.89 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkArena_ConstantPayload-16    	87104852	        13.50 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -38,7 +39,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 	_ = writer.TotalBytesWritten.Load()
 }
 
-// BenchmarkArena_FormattedPayload-16    	11129125	       109.9 ns/op	      64 B/op	       1 allocs/op
+// BenchmarkArena_FormattedPayload-16    	11457354	       107.4 ns/op	      64 B/op	       1 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -69,7 +70,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem -race
-// BenchmarkIngestor_Write-16     92691792                12.31 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_Write-16    	99849817	        12.45 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Write(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -106,7 +107,7 @@ func BenchmarkIngestor_Write(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem -race
-// BenchmarkIngestor_WriteParallel-16    	21773329	        56.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_WriteParallel-16    	21970140	        56.18 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -147,18 +148,18 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 }
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-16         	94884349	        13.13 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-16         	80150366	        14.40 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-16        	76019497	        15.26 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-16       	78450933	        15.59 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-16         	96808021	        11.93 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-16         	89305482	        13.30 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-16        	77739892	        15.38 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-16       	71679967	        16.63 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-16        	100000000	        11.75 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-16        	93434606	        12.90 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-16       	78145716	        15.33 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-16      	70253193	        17.31 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-16         	93055680	        12.98 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-16         	82779030	        14.63 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-16        	77398191	        15.31 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-16       	78271713	        15.46 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-16         	99570163	        12.05 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-16         	90364548	        13.45 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-16        	77610486	        15.36 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-16       	72310461	        16.48 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-16        	99247062	        11.94 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-16        	93658777	        13.03 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-16       	77038956	        15.55 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-16      	68408236	        17.40 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
 	sizesArena := []int{Size100K, Size500K, Size1M}

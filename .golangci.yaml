@@ -18,6 +18,7 @@ linters:
     - embeddedstructfieldcheck
     - err113
     - errcheck
+    - errchkjson
     - errname
     - exhaustruct
     - exhaustive
@@ -168,6 +169,9 @@ linters:
           disabled: true
 
         - name: modifies-value-receiver 
+          disabled: true
+
+        - name: nested-structs
           disabled: true
 
         - name: var-naming 

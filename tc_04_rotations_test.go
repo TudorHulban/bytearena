@@ -37,57 +37,54 @@ func TestManyRotations(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	// Track rotation count
+	var rotationCount atomic.Int32
+
+	ingestor.flusher = func(a *arena) {
+		// Count this rotation
+		rotationCount.Add(1)
+
+		// Validate cursor is within bounds
+		cursor := a.cursor.Load()
+		require.GreaterOrEqual(t,
+			cursor,
+			int32(0),
+			"cursor should be non-negative",
+		)
+		require.LessOrEqual(t,
+			cursor,
+			int32(arenaSize),
+			"cursor should not exceed arena size",
+		)
+
+		ingestor.waitForWriters(a)
+		ingestor.flushArena(a)
+		a.reset()
+
+		// After reset, verify arena is clean
+		require.Zero(t,
+			a.cursor.Load(),
+			"cursor should be 0 after reset",
+		)
+		require.Zero(t,
+			a.rollbackCounter.Load(),
+			"rollback counter should be 0 after reset",
+		)
+
+		// Note: numberWriters is not reset here as per arena.reset() documentation
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
-	// Track rotation count
-	var rotationCount atomic.Int32
 
 	// Start consumer with rotation tracking
-	go func() {
-		defer wgConsumer.Done()
-
-		ingestor.consumerLoop(
-			ctx,
-
-			func(a *arena) {
-				// Count this rotation
-				rotationCount.Add(1)
-
-				// Validate cursor is within bounds
-				cursor := a.cursor.Load()
-				require.GreaterOrEqual(t,
-					cursor,
-					int32(0),
-					"cursor should be non-negative",
-				)
-				require.LessOrEqual(t,
-					cursor,
-					int32(arenaSize),
-					"cursor should not exceed arena size",
-				)
-
-				ingestor.waitForWriters(a)
-				ingestor.flushArena(a)
-				a.reset()
-
-				// After reset, verify arena is clean
-				require.Zero(t,
-					a.cursor.Load(),
-					"cursor should be 0 after reset",
-				)
-				require.Zero(t,
-					a.rollbackCounter.Load(),
-					"rollback counter should be 0 after reset",
-				)
-
-				// Note: numberWriters is not reset here as per arena.reset() documentation
-			},
-		)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -260,46 +257,45 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	// Track cursor values across rotations
+	var (
+		cursorHistory []int32
+		cursorMutex   sync.Mutex
+		rotationCount atomic.Int32
+	)
+
+	ingestor.flusher = func(a *arena) {
+		rotationCount.Add(1)
+
+		cursorMutex.Lock()
+
+		cursorHistory = append(cursorHistory, a.cursor.Load())
+
+		cursorMutex.Unlock()
+
+		// Verify cursor never exceeds arena size
+		cursor := a.cursor.Load()
+		require.LessOrEqual(t, cursor, int32(arenaSize),
+			"cursor %d exceeds arena size %d", cursor, arenaSize)
+
+		ingestor.flushArena(a)
+		a.reset()
+
+		// After reset, cursor must be 0
+		require.Equal(t, int32(0), a.cursor.Load(),
+			"cursor not reset to 0")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var rotationCount atomic.Int32
-
 	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
 
-	// Track cursor values across rotations
-	var cursorHistory []int32
-
-	var cursorMutex sync.Mutex
-
-	go func() {
-		defer wgConsumer.Done()
-
-		ingestor.consumerLoop(
-			ctx,
-			func(a *arena) {
-				rotationCount.Add(1)
-
-				cursorMutex.Lock()
-
-				cursorHistory = append(cursorHistory, a.cursor.Load())
-				cursorMutex.Unlock()
-
-				// Verify cursor never exceeds arena size
-				cursor := a.cursor.Load()
-				require.LessOrEqual(t, cursor, int32(arenaSize),
-					"cursor %d exceeds arena size %d", cursor, arenaSize)
-
-				ingestor.flushArena(a)
-				a.reset()
-
-				// After reset, cursor must be 0
-				require.Equal(t, int32(0), a.cursor.Load(),
-					"cursor not reset to 0")
-			},
-		)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	// Single producer writing sequentially to make cursor behavior predictable
 	for i := range numRotations * 2 {

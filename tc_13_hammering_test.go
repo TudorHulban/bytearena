@@ -39,12 +39,6 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
 	// Track metrics
 	var (
 		rotationCount    atomic.Int32
@@ -61,56 +55,59 @@ func TestHammerWithHugeMessages(t *testing.T) {
 		cursorMutex   sync.Mutex
 	)
 
-	// Start consumer with monitoring
-	go func() {
-		defer wgConsumer.Done()
+	ingestor.flusher = func(a *arena) {
+		rotationCount.Add(1)
 
-		ingestor.consumerLoop(
-			ctx,
+		cursorMutex.Lock()
 
-			func(a *arena) {
-				rotationCount.Add(1)
+		cursorHistory = append(cursorHistory, a.cursor.Load())
+		cursorMutex.Unlock()
 
-				cursorMutex.Lock()
+		// Track rollbacks from this arena
+		rollbacks := a.rollbackCounter.Load()
+		if rollbacks > 0 {
+			rollbackCount.Add(int64(rollbacks))
+		}
 
-				cursorHistory = append(cursorHistory, a.cursor.Load())
-				cursorMutex.Unlock()
+		// Verify cursor never exceeds arena size
+		cursor := a.cursor.Load()
+		require.LessOrEqual(t,
+			cursor,
+			int32(arenaSize),
+			"cursor %d exceeds arena size %d", cursor, arenaSize)
 
-				// Track rollbacks from this arena
-				rollbacks := a.rollbackCounter.Load()
-				if rollbacks > 0 {
-					rollbackCount.Add(int64(rollbacks))
-				}
+		// Log progress periodically
+		if rotationCount.Load()%50 == 0 {
+			t.Logf(
+				"Rotation %d: cursor=%d, used=%d, rollbacks=%d",
+				rotationCount.Load(),
+				cursor,
+				a.cursor.Load(),
+				rollbacks,
+			)
+		}
 
-				// Verify cursor never exceeds arena size
-				cursor := a.cursor.Load()
-				require.LessOrEqual(t,
-					cursor,
-					int32(arenaSize),
-					"cursor %d exceeds arena size %d", cursor, arenaSize)
+		ingestor.flushArena(a)
+		a.reset()
 
-				// Log progress periodically
-				if rotationCount.Load()%50 == 0 {
-					t.Logf(
-						"Rotation %d: cursor=%d, used=%d, rollbacks=%d",
-						rotationCount.Load(),
-						cursor,
-						a.cursor.Load(),
-						rollbacks,
-					)
-				}
-
-				ingestor.flushArena(a)
-				a.reset()
-
-				// After reset, cursor must be 0
-				require.Zero(t,
-					a.cursor.Load(),
-					"cursor not reset to 0",
-				)
-			},
+		// After reset, cursor must be 0
+		require.Zero(t,
+			a.cursor.Load(),
+			"cursor not reset to 0",
 		)
-	}()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var wgConsumer sync.WaitGroup
+
+	// Start consumer with monitoring
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -295,12 +292,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Add(1)
-
 	type rotationMetrics struct {
 		index     int32
 		cursor    int32
@@ -310,37 +301,39 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	}
 
 	var (
-		metrics      []rotationMetrics
-		metricsMutex sync.Mutex
+		metrics       []rotationMetrics
+		metricsMutex  sync.Mutex
+		rotationIndex int32
 	)
 
-	go func() {
-		defer wgConsumer.Done()
+	ingestor.flusher = func(a *arena) {
+		rotationIndex++
 
-		rotationIndex := int32(0)
+		metricsMutex.Lock()
 
-		ingestor.consumerLoop(
-			ctx,
+		metrics = append(metrics, rotationMetrics{
+			index:     rotationIndex,
+			cursor:    a.cursor.Load(),
+			used:      uint32(a.cursor.Load()),
+			rollbacks: a.rollbackCounter.Load(),
+			writers:   a.numberWriters.Load(),
+		})
+		metricsMutex.Unlock()
 
-			func(a *arena) {
-				rotationIndex++
+		ingestor.flushArena(a)
+		a.reset()
+	}
 
-				metricsMutex.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-				metrics = append(metrics, rotationMetrics{
-					index:     rotationIndex,
-					cursor:    a.cursor.Load(),
-					used:      uint32(a.cursor.Load()),
-					rollbacks: a.rollbackCounter.Load(),
-					writers:   a.numberWriters.Load(),
-				})
-				metricsMutex.Unlock()
+	var wgConsumer sync.WaitGroup
 
-				ingestor.flushArena(a)
-				a.reset()
-			},
-		)
-	}()
+	wgConsumer.Go(
+		func() {
+			ingestor.consumerLoop(ctx)
+		},
+	)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
