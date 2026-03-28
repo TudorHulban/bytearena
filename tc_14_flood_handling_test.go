@@ -38,10 +38,9 @@ func TestExactAndOversizedWrites(t *testing.T) {
 	require.ErrorIs(t, errWrite, ErrWriteMessageTooLarge)
 	require.Zero(t, region)
 
-	// Rollback should increment
+	// Rollback should not increment as there is oversize check.
 	arenaActive := ingestor.active.Load()
-	require.EqualValues(t,
-		1,
+	require.Zero(t,
 		arenaActive.rollbackCounter.Load(),
 	)
 
