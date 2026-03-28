@@ -3,7 +3,6 @@ package bytearena
 import (
 	"context"
 	"runtime"
-	"time"
 
 	"github.com/tudorhulban/bytearena/helpers"
 )
@@ -50,7 +49,5 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) bool {
 		default:
 			runtime.Gosched()
 		}
-
-		time.Sleep(time.Microsecond)
 	}
 }
