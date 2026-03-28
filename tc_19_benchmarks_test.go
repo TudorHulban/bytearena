@@ -41,7 +41,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 }
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_FormattedPayload-16    	42669784	        29.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkArena_FormattedPayload-12    	43534532	        28.83 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -154,19 +154,19 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	)
 }
 
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-16         	90126430	        13.89 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-16         	76402267	        15.97 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-16        	62926371	        17.55 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-16       	67831453	        17.47 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-16         	97691055	        12.18 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-16         	86874651	        14.09 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-16        	71361512	        16.78 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-16       	63043191	        18.59 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-16        	99691752	        11.89 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-16        	88871469	        13.22 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-16       	73939690	        16.17 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-16      	62773869	        19.28 ns/op	       0 B/op	       0 allocs/op
+// cpu: AMD Ryzen 5 5600U with Radeon Graphics
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-12         	86013297	        13.91 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-12         	77743675	        15.38 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-12        	73199229	        16.32 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-12       	72738548	        16.50 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-12         	90128590	        12.82 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-12         	84446210	        14.00 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-12        	69715321	        16.45 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-12       	65314560	        17.46 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-12        	95055610	        12.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-12        	88900497	        13.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-12       	74119821	        15.92 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-12      	65107002	        18.12 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
 	sizesArena := []uint32{Size100K(), Size500K(), Size1M()}

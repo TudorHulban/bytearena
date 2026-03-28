@@ -15,10 +15,10 @@ func (*Ingestor) waitForWriters(a *arena) {
 	spin := 0
 
 	for writers.Load() != 0 {
-		if spin < 30 {
+		if spin < 20 {
 			spin++
 
-			helpers.Pause(16)
+			helpers.Pause(1)
 
 			continue
 		}
@@ -35,10 +35,10 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) bool {
 			return true
 		}
 
-		if spin < 50 {
+		if spin < 30 {
 			spin++
 
-			helpers.Pause(16)
+			helpers.Pause(1)
 
 			continue
 		}
