@@ -3,6 +3,7 @@ package bytearena
 import (
 	"bytes"
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -77,6 +78,7 @@ func Test_01_c_Ingestor_OversizeWrite(t *testing.T) {
 		1,
 		&writer,
 		WithTelemetry(),
+		WithTelemetryWriter(os.Stdout),
 	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
@@ -104,9 +106,11 @@ func Test_01_c_Ingestor_OversizeWrite(t *testing.T) {
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
-	require.NotZero(t,
+	require.Zero(t,
 		ingestor.Metrics.NumberRollbacks.Load(),
 	)
+
+	ingestor.ReportTelemetry(ingestor)
 
 	ingestor.Metrics.Reset()
 

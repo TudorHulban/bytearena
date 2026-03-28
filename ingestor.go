@@ -10,7 +10,9 @@ import (
 // Ingestor owns the two arenas and coordinates which one is active.
 // It also handles the rotation and flush on context cancellation.
 type Ingestor struct {
-	writer  io.Writer
+	writer          io.Writer
+	writerTelemetry io.Writer
+
 	flusher func(a *arena)
 
 	chFlush chan struct{}
@@ -44,7 +46,8 @@ type Ingestor struct {
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
 	result := Ingestor{
-		writer: w,
+		writer:          w,
+		writerTelemetry: w,
 
 		chFlush: make(chan struct{}, 1),
 

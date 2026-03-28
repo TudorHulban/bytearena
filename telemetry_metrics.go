@@ -1,6 +1,8 @@
 package bytearena
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 type Metrics struct {
 	NumberRollbacks atomic.Uint64

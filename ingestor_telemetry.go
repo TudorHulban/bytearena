@@ -15,7 +15,7 @@ func (m *Ingestor) ReportDrops(drops map[string]uint64) {
 		},
 	)
 
-	_, _ = m.writer.Write(append(logEntry, '\n'))
+	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
 func (m *Ingestor) ReportMetrics() {
@@ -27,7 +27,7 @@ func (m *Ingestor) ReportMetrics() {
 		},
 	)
 
-	_, _ = m.writer.Write(append(logEntry, '\n'))
+	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
 func (m *Ingestor) ReportTelemetry(reporter Reporter) {
@@ -36,4 +36,6 @@ func (m *Ingestor) ReportTelemetry(reporter Reporter) {
 	)
 
 	reporter.ReportMetrics()
+
+	m.Metrics.Reset()
 }

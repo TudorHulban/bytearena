@@ -3,6 +3,7 @@ package bytearena
 import (
 	"errors"
 	"fmt"
+	"io"
 )
 
 type Options func(*Ingestor) error
@@ -37,6 +38,14 @@ func WithTickMiliseconds(interval uint16) Options {
 func WithTelemetry() Options {
 	return func(i *Ingestor) error {
 		i.withTelemetry = true
+
+		return nil
+	}
+}
+
+func WithTelemetryWriter(w io.Writer) Options {
+	return func(i *Ingestor) error {
+		i.writerTelemetry = w
 
 		return nil
 	}

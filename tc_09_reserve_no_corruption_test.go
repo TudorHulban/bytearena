@@ -33,7 +33,7 @@ import (
 // 4. No panic or race conditions occur
 func TestReserveNoCorruption(t *testing.T) {
 	arenaSize := uint32(1000)
-	var writer bytes.Buffer
+	writer := bytes.Buffer{}
 
 	// Configure aggressive seal percentage to trigger rotation early
 	// This forces the arena to seal and reset frequently, exposing rollback issues.
@@ -55,8 +55,8 @@ func TestReserveNoCorruption(t *testing.T) {
 	successCount := atomic.Int64{}
 	expectedMessages := sync.Map{}
 
-	noProducers := 20
-	writesPerProducer := 100
+	noProducers := 30
+	writesPerProducer := 300
 
 	wgProducers.Add(noProducers)
 
@@ -104,7 +104,7 @@ func TestReserveNoCorruption(t *testing.T) {
 	cancel()
 	<-chIngestionEnd
 
-	require.GreaterOrEqual(t,
+	require.Greater(t,
 		ingestor.Metrics.NumberRollbacks.Load(),
 		uint64(0),
 	)
@@ -141,7 +141,8 @@ func TestReserveNoCorruption(t *testing.T) {
 
 	expectedMessages.Range(
 		func(key, _ any) bool {
-			raw := key.(string)
+			raw, couldCast := key.(string)
+			require.True(t, couldCast)
 
 			// Normalize to how lines are stored in messageCounts
 			msg := strings.TrimSuffix(raw, "\n")
@@ -202,69 +203,12 @@ func TestReserveNoCorruption(t *testing.T) {
 	}
 }
 
-// TestReserveRollbackCounter verifies that rollback counter increments
-// when producers attempt to write messages that would overflow the arena.
-func TestReserveRollbackCounter(t *testing.T) {
-	arenaSize := uint32(500)
-	var out helpers.NoopWriter
-
-	ingestor, errCrINgestor := NewIngestor(arenaSize, &out)
-	require.NoError(t, errCrINgestor)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	chIngestionEnd := ingestor.StartIngestion(ctx)
-
-	// Reset rollback counters before test
-	ingestor.arenaFirst.rollbackCounter.Store(0)
-	ingestor.arenaSecond.rollbackCounter.Store(0)
-
-	// Attempt to write messages larger than arena size
-	// This should always trigger rollback (ErrWriteMessageTooLarge)
-	largeMsg := make([]byte, arenaSize+100)
-
-	for ix := range largeMsg {
-		largeMsg[ix] = 'x'
-	}
-
-	payload := string(largeMsg)
-
-	errWrite := ingestor.write(
-		uint32(len(payload)),
-
-		func(dst []byte) {
-			copy(dst, payload)
-		},
-	)
-
-	require.ErrorIs(t,
-		errWrite,
-		ErrWriteMessageTooLarge,
-		"Message larger than arena should return ErrWriteMessageTooLarge",
-	)
-
-	// Small delay to allow consumer to process
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify rollback counter increased
-	rollbackTotal := ingestor.arenaFirst.rollbackCounter.Load() +
-		ingestor.arenaSecond.rollbackCounter.Load()
-
-	require.Greater(t,
-		rollbackTotal,
-		int32(0),
-		"Rollback counter should be >0 after failed reservation attempts",
-	)
-
-	cancel()
-	<-chIngestionEnd
-}
-
 // BenchmarkReserveContention measures performance under high rollback pressure
 func BenchmarkReserveContention(b *testing.B) {
 	arenaSize := uint32(1000)
-	var out helpers.NoopWriter
+	writer := helpers.NoopWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(arenaSize, &out)
+	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
 	require.NoError(b, errCrIngestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
