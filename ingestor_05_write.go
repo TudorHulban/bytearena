@@ -59,6 +59,11 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		// Overflow-safe check: avoid computing cur + n directly.
 		if cur > limit {
 			arena.AddRollback()
+
+			if m.withTelemetry {
+				m.Metrics.IncrementRollback()
+			}
+
 			arena.Leave()
 			m.signalFlush()
 

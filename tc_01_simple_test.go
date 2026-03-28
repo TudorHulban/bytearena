@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // Test Case 01: Ingestion should be started
@@ -16,9 +17,9 @@ import (
 // it should started for correct operation.
 
 func Test_01_a_Error_NoIngestionStart(t *testing.T) {
-	var sink bytes.Buffer
+	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(Size100K(), &sink)
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
@@ -32,18 +33,17 @@ func Test_01_a_Error_NoIngestionStart(t *testing.T) {
 
 	cancel()
 
-	require.NotContains(t, sink.String(), payload)
+	require.NotContains(t, writer.String(), payload)
 }
 
 func Test_01_b_Ingestor_SingleWrite(t *testing.T) {
-	var out bytes.Buffer
+	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(1024, &out)
+	ingestor, errCrIngestor := NewIngestor(1024, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
 
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
@@ -54,16 +54,63 @@ func Test_01_b_Ingestor_SingleWrite(t *testing.T) {
 			uint32(len(payload)),
 
 			func(destination []byte) {
-				copy(destination, []byte(payload))
+				copy(destination, payload)
 			},
 		),
 	)
+
+	cancel()
 
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
 	require.Equal(t,
 		payload,
-		out.String(),
+		writer.String(),
+	)
+}
+
+func Test_01_c_Ingestor_OversizeWrite(t *testing.T) {
+	var writer helpers.NoopWriter
+
+	ingestor, errCrIngestor := NewIngestor(
+		1,
+		&writer,
+		WithTelemetry(),
+	)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := "hi!"
+
+	require.ErrorIs(t,
+		ingestor.write(
+			uint32(len(payload)),
+
+			func(destination []byte) {
+				copy(destination, payload)
+			},
+		),
+
+		ErrWriteMessageTooLarge,
+	)
+
+	cancel()
+
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
+
+	require.NotZero(t,
+		ingestor.Metrics.NumberRollbacks.Load(),
+	)
+
+	ingestor.Metrics.Reset()
+
+	require.Zero(t,
+		ingestor.Metrics.NumberRollbacks.Load(),
 	)
 }

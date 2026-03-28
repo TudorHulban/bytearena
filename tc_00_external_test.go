@@ -31,7 +31,7 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 
 	reporter := ingestor
 
-	ingestor.Telemetry(reporter)
+	ingestor.ReportTelemetry(reporter)
 
 	cancel()
 	<-chIngestionEnd

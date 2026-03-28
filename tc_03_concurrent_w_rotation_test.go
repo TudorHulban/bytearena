@@ -61,7 +61,7 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 					uint32(len(payload)),
 
 					func(dst []byte) {
-						copy(dst, []byte(payload))
+						copy(dst, payload)
 					},
 				); errWrite == nil {
 					successCount.Add(1)

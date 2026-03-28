@@ -27,7 +27,8 @@ type Ingestor struct {
 	// This is informational; consumer logic will use it.
 	sealed atomic.Pointer[arena]
 
-	telemetry ErrorsRegistry
+	Telemetry ErrorsRegistry
+	Metrics   Metrics
 
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
@@ -35,6 +36,8 @@ type Ingestor struct {
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
 	tickIntervalMiliseconds uint16
+
+	withTelemetry bool
 }
 
 // NewIngestor allocates two arenas of the given size and initializes

@@ -33,3 +33,11 @@ func WithTickMiliseconds(interval uint16) Options {
 		return nil
 	}
 }
+
+func WithTelemetry() Options {
+	return func(i *Ingestor) error {
+		i.withTelemetry = true
+
+		return nil
+	}
+}
