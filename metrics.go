@@ -52,16 +52,11 @@ func (r *ErrorsRegistry) Snapshot() map[string]uint64 {
 	for ix := range maxErrorTypes {
 		et := ix
 
-		// Atomic Swap ensures we don't lose counts between the read and reset
+		// Atomic Swap ensures counts between the read and reset are not lost.
 		count := r.Counts[et].value.Swap(0)
 
 		if count > 0 {
-			name, exists := errorTypeNames[et]
-			if !exists {
-				name = "unregistered_error"
-			}
-
-			stats[name] = count
+			stats[errorTypeNames[et]] = count
 		}
 	}
 

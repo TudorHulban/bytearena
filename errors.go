@@ -25,7 +25,7 @@ const (
 	maxErrorTypes // Helper for array size
 )
 
-var errorTypeNames = map[errorType]string{
+var errorTypeNames = [maxErrorTypes]string{
 	TErrWriteNoActiveArena:       "no_active_arena",
 	TErrWriteActiveArenaMismatch: "active_arena_mismatch",
 	TErrWriteArenaFull:           "arena_full",

@@ -1,6 +1,9 @@
 package bytearena
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Options func(*Ingestor) error
 
@@ -14,6 +17,18 @@ func WithSealPercentage(percentage uint32) Options {
 		}
 
 		i.arenaSealPercentage = percentage
+
+		return nil
+	}
+}
+
+func WithTickMiliseconds(interval uint16) Options {
+	return func(i *Ingestor) error {
+		if interval == 0 {
+			return errors.New("tick value cannot be zero")
+		}
+
+		i.tickIntervalMiliseconds = interval
 
 		return nil
 	}

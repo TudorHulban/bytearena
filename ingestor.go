@@ -33,6 +33,8 @@ type Ingestor struct {
 	arenaSize           uint32
 	arenaSealPercentage uint32
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
+
+	tickIntervalMiliseconds uint16
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -50,8 +52,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			buf: make([]byte, arenaSize),
 		},
 
-		arenaSize:           arenaSize,
-		arenaSealPercentage: 90,
+		arenaSize:               arenaSize,
+		arenaSealPercentage:     90,
+		tickIntervalMiliseconds: 50,
 	}
 
 	result.flusher = result.flushArena
@@ -97,7 +100,9 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (m *Ingestor) consumerLoop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(
+		time.Duration(m.tickIntervalMiliseconds) * time.Millisecond,
+	)
 	defer ticker.Stop()
 
 	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.

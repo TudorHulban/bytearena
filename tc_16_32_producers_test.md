@@ -85,7 +85,7 @@ Throughput is stable and high across all arena sizes ≥ 500K. The gain from 500
 
 ### Medium Concurrency: 16 Producers
 
-This is where arena size becomes critical. The system has crossed the SMT boundary.
+This is where arena size becomes critical. The system has crossed the Simultaneous Multithreading (SMT) boundary.
 
 | Arena | Throughput | Notes |
 |---|---|---|
