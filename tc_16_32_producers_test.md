@@ -19,7 +19,7 @@ The number of producers refers to goroutines simultaneously pushing messages at 
 | 9–16 | 4 MB | 8–8.3M writes/sec | 8 MB |
 | 17–32 | 8 MB | ~6M writes/sec (extrapolated) | 16 MB |
 
-**Seal percentage: set to anything in 90–99%**. Empirically it has no measurable effect on throughput under load. See [Seal Percentage](#seal-percentage-is-inert) for why.
+**Seal percentage: set to anything in 90–99%**. Empirically it has no measurable effect on throughput under load. See [Seal Percentage](#3-seal-percentage-is-inert) for why.
 
 ---
 
@@ -51,14 +51,14 @@ The relationship is linear: doubling arena size roughly doubles throughput at 16
 
 Across every combination of arena size and producer count, varying seal percentage from 90% to 99% produces differences within run-to-run variance (< ±3%). Example at 4M arena, 16 producers:
 
-```
+```sh
 S_90:  8,325,168 writes/sec
 S_95:  8,264,533 writes/sec
 S_97:  8,263,313 writes/sec
 S_99:  8,319,093 writes/sec
 ```
 
-The reason: under any sustained load, `rollbackCounter` fires before the cursor threshold is ever reached. Producers fill the arena faster than the percentage threshold matters — `shouldSeal` short-circuits on the rollback check regardless of the configured percentage. The threshold only activates in low-write-rate scenarios (single producer, large arena, sparse writes) where tuning it could not matter much.
+The reason: under any sustained load, `rollbackCounter` fires before the cursor threshold is ever reached. Producers fill the arena faster than the percentage threshold matters — `shouldSeal` short-circuits on the rollback check regardless of the configured percentage. The threshold only activates in low-write-rate scenarios (single producer, large arena, sparse writes) where tuning it would not matter much.
 
 ---
 

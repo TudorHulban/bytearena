@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// NUMA = Non‑Uniform Memory Access
 // Test Case 17: NUMA-Style False Sharing Detection
 
 // Test: Multiple cores hammer different atomics.

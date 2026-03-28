@@ -4,6 +4,8 @@ import (
 	"context"
 	"runtime"
 	"time"
+
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // waitForWriters blocks until writers-in-flight reaches zero.
@@ -14,13 +16,13 @@ func (*Ingestor) waitForWriters(a *arena) {
 	spin := 0
 
 	for writers.Load() != 0 {
-		spin++
+		if spin < 30 {
+			spin++
 
-		if spin < 64 {
+			helpers.Pause(16)
+
 			continue
 		}
-
-		spin = 0
 
 		runtime.Gosched()
 	}
@@ -34,10 +36,10 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) bool {
 			return true
 		}
 
-		spin++
-
 		if spin < 50 {
-			runtime.Gosched()
+			spin++
+
+			helpers.Pause(16)
 
 			continue
 		}
@@ -46,6 +48,7 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) bool {
 		case <-ctx.Done():
 			return false
 		default:
+			runtime.Gosched()
 		}
 
 		time.Sleep(time.Microsecond)

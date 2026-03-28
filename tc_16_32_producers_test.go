@@ -41,6 +41,7 @@ func TestConcurrent32Producers(t *testing.T) {
 	)
 
 	numProducers := 32
+
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
 
@@ -103,8 +104,9 @@ func TestConcurrent32Producers(t *testing.T) {
 // and aggressive rotation to stress the lock-free mechanisms.
 func TestHighContentionConcurrentWrites(t *testing.T) {
 	var out bytes.Buffer
-	ingestor, err := NewIngestor(Size100K(), &out, WithSealPercentage(50))
-	require.NoError(t, err)
+
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &out, WithSealPercentage(50))
+	require.NoError(t, errCrIngestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -115,8 +117,10 @@ func TestHighContentionConcurrentWrites(t *testing.T) {
 	writesPerProducer := 10000
 	payload := []byte("p-write\n") // fixed size, no allocation
 
-	var wgProducers sync.WaitGroup
-	var successCount, dropCount atomic.Int64
+	var (
+		wgProducers             sync.WaitGroup
+		successCount, dropCount atomic.Int64
+	)
 
 	for range numProducers {
 		wgProducers.Go(
@@ -236,6 +240,7 @@ func TestConcurrentProducersWithVariablePayload(t *testing.T) {
 	)
 
 	numProducers := 32
+
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
 
@@ -313,6 +318,7 @@ func TestProducerConsumerThroughput(t *testing.T) {
 	)
 
 	numProducers := 32
+
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
 
@@ -402,8 +408,10 @@ func BenchmarkConcurrentProducersFixedTime(b *testing.B) {
 
 				payload := []byte("benchmark-payload-32bytes")
 
-				var wgProducers sync.WaitGroup
-				var writesCompleted atomic.Int64
+				var (
+					wgProducers     sync.WaitGroup
+					writesCompleted atomic.Int64
+				)
 
 				// Start producers
 				for range numProducers {
@@ -718,8 +726,10 @@ func BenchmarkContentionScaling(b *testing.B) {
 
 						payload := []byte("benchmark-payload-32bytes")
 
-						var wgProducers sync.WaitGroup
-						var writesCompleted atomic.Int64
+						var (
+							wgProducers     sync.WaitGroup
+							writesCompleted atomic.Int64
+						)
 
 						startTime := time.Now()
 

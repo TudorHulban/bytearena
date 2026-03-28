@@ -60,7 +60,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 			uint32(len(payload)),
 
 			func(destination []byte) {
-				copy(destination, []byte(payload))
+				copy(destination, payload)
 			},
 		)
 	}

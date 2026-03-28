@@ -1,6 +1,9 @@
 package bytearena
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 const (
 	_Size1K = 1 << 10 // 1 KiB
@@ -29,7 +32,7 @@ func (fn Size) String() string {
 		return fmt.Sprintf("%dK", val/(1<<10))
 
 	default:
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(uint64(val), 10)
 	}
 }
 

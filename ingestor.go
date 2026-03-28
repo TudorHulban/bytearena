@@ -32,6 +32,7 @@ type Ingestor struct {
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32
+	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -61,6 +62,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 				errOption
 		}
 	}
+
+	// optimization - Precompute the seal threshold
+	result.arenaSealThreshold = int32((arenaSize * result.arenaSealPercentage) / 100) //nolint:gosec
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)
