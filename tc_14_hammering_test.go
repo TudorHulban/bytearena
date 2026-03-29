@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 13: Hammer arena with huge messages
+// Test Case: Hammer arena with huge messages
 
 // Test: Try to hammer arena with write request larger than arena size.
 // Say 90% - 100% of requests are greater than arena size.
@@ -321,7 +321,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 		metricsMutex.Unlock()
 
 		ingestor.flushArena(a)
-		a.reset()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

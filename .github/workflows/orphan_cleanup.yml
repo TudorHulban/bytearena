@@ -1,0 +1,77 @@
+name: Cleanup Orphaned CI Runs
+
+# runs only in main branch
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  cleanup-orphan-runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX_AGE_HOURS: 1   # safety buffer to avoid race conditions
+
+    steps:
+      - name: Checkout (for git remote)
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq gh
+
+      - name: Fetch remote branches
+        run: |
+          git fetch --prune origin
+          git ls-remote --heads origin | awk '{print $2}' | sed 's|refs/heads/||' > branches.txt
+
+          echo "=== EXISTING BRANCHES ==="
+          cat branches.txt
+
+      - name: Find and delete orphan runs
+        run: |
+          CURRENT_TIME=$(date +%s)
+          MAX_AGE_SECONDS=$((MAX_AGE_HOURS * 3600))
+
+          ALL_RUNS=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --json databaseId,headBranch,createdAt \
+            --limit 500)
+
+          echo "=== ALL RUNS ==="
+          echo "$ALL_RUNS" | jq -r '.[] | "\(.databaseId) \(.headBranch) \(.createdAt)"'
+
+          ORPHAN_RUNS=$(echo "$ALL_RUNS" | jq \
+            --argfile branches branches.txt \
+            --argjson now "$CURRENT_TIME" \
+            --argjson max_age "$MAX_AGE_SECONDS" '
+              map(
+                select(
+                  .headBranch != null
+                  and (.headBranch as $b | ($branches | index($b)) | not)
+                  and (
+                    ($now - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdate)) > $max_age
+                  )
+                )
+              )
+            ')
+
+          echo "=== ORPHAN RUNS ==="
+          echo "$ORPHAN_RUNS" | jq -r '.[]? | "\(.databaseId) \(.headBranch)"'
+
+          echo "$ORPHAN_RUNS" |
+            jq -r '.[]? | @base64' |
+            while read RUN; do
+              j() { echo "$RUN" | base64 --decode | jq -r "$1"; }
+
+              ID=$(j '.databaseId')
+              BRANCH=$(j '.headBranch')
+
+              echo "Deleting run $ID (branch: $BRANCH)"
+              gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "Failed to delete $ID"
+            done

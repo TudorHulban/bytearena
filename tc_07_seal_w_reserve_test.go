@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 06: Race Between Reserve and Seal
+// Test Case: Race Between Reserve and Seal
 
 // Test: Producer reserves space exactly as consumer seals
 // Verifies: No writes to arena after it is sealed

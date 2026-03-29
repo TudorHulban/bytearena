@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 17: NUMA-Style False Sharing Detection
+// NUMA = Non‑Uniform Memory Access
+// Test Case: NUMA-Style False Sharing Detection
 
 // Test: Multiple cores hammer different atomics.
 // Verifies: Cache line padding works (performance, not correctness).
@@ -17,7 +18,7 @@ func TestFalseSharingResistance(t *testing.T) {
 		t.Skip("Skipping performance test in short mode")
 	}
 
-	ingestor, errCrIngestor := NewIngestor(Size1M, &bytes.Buffer{})
+	ingestor, errCrIngestor := NewIngestor(Size1M(), &bytes.Buffer{})
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 

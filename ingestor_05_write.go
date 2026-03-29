@@ -14,6 +14,12 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 		return region, nil
 	}
 
+	// Do not retry permanently oversized messages.
+	// errors.Is is too slow.
+	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
+		return WriteRegion{}, errWrite
+	}
+
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.
 	return m.beginWrite(n)
@@ -32,6 +38,13 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 //   - rollback counter is incremented
 //   - ok == false
 func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
+	// Permanently oversized: message can never fit any arena, don't retry.
+	// Check this before Enter() to avoid a spurious rollback increment.
+	if int32(n) > int32(m.arenaSize) { //nolint:gosec
+		return WriteRegion{},
+			ErrWriteMessageTooLarge
+	}
+
 	arena := m.active.Load()
 	if arena == nil {
 		return WriteRegion{},
@@ -57,12 +70,21 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		cur := arena.cursor.Load()
 
 		// Overflow-safe check: avoid computing cur + n directly.
+		// At this point n <= arenaSize is guaranteed, so limit >= 0.
+		// This branch means the arena is currently too full — signal
+		// a flush and let TryWrite retry after rotation.
 		if cur > limit {
 			arena.AddRollback()
+
+			if m.withTelemetry {
+				m.Metrics.IncrementRollback()
+			}
+
 			arena.Leave()
 			m.signalFlush()
 
-			return WriteRegion{}, ErrWriteMessageTooLarge
+			return WriteRegion{},
+				ErrWriteArenaFull
 		}
 
 		next := cur + int32(n) //nolint:gosec
@@ -79,10 +101,11 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 
 	// Success
 	return WriteRegion{
-		arena:  arena,
-		offset: offset,
-		size:   n,
-	}, nil
+			arena:  arena,
+			offset: offset,
+			size:   n,
+		},
+		nil
 }
 
 // write attempts to write n bytes into the active arena.

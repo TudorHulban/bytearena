@@ -10,7 +10,9 @@ import (
 // Ingestor owns the two arenas and coordinates which one is active.
 // It also handles the rotation and flush on context cancellation.
 type Ingestor struct {
-	writer  io.Writer
+	writer          io.Writer
+	writerTelemetry io.Writer
+
 	flusher func(a *arena)
 
 	chFlush chan struct{}
@@ -27,18 +29,25 @@ type Ingestor struct {
 	// This is informational; consumer logic will use it.
 	sealed atomic.Pointer[arena]
 
-	telemetry ErrorsRegistry
+	Telemetry ErrorsRegistry
+	Metrics   Metrics
 
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32
+	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
+
+	tickIntervalMiliseconds uint16
+
+	withTelemetry bool
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
 	result := Ingestor{
-		writer: w,
+		writer:          w,
+		writerTelemetry: w,
 
 		chFlush: make(chan struct{}, 1),
 
@@ -49,8 +58,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			buf: make([]byte, arenaSize),
 		},
 
-		arenaSize:           arenaSize,
-		arenaSealPercentage: 90,
+		arenaSize:               arenaSize,
+		arenaSealPercentage:     90,
+		tickIntervalMiliseconds: 50,
 	}
 
 	result.flusher = result.flushArena
@@ -61,6 +71,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 				errOption
 		}
 	}
+
+	// optimization - Precompute the seal threshold
+	result.arenaSealThreshold = int32((arenaSize * result.arenaSealPercentage) / 100) //nolint:gosec
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)
@@ -93,7 +106,9 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (m *Ingestor) consumerLoop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(
+		time.Duration(m.tickIntervalMiliseconds) * time.Millisecond,
+	)
 	defer ticker.Stop()
 
 	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.
@@ -102,7 +117,7 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			m.flushOnShutdown(ctx)
+			m.flushOnShutdown()
 
 			return
 

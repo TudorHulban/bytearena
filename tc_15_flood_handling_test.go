@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 14: Exact Arena Size Edge Cases
+// Test Case: Exact Arena Size Edge Cases
 
 // Test: Writes of exact arena size, writes larger than arena
 // Verifies: Flood handling as described in Arena.md
@@ -38,10 +38,9 @@ func TestExactAndOversizedWrites(t *testing.T) {
 	require.ErrorIs(t, errWrite, ErrWriteMessageTooLarge)
 	require.Zero(t, region)
 
-	// Rollback should increment
+	// Rollback should not increment as there is oversize check.
 	arenaActive := ingestor.active.Load()
-	require.EqualValues(t,
-		1,
+	require.Zero(t,
 		arenaActive.rollbackCounter.Load(),
 	)
 

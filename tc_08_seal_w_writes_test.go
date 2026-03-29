@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 07: Seal During Active Writes
+// Test Case: Seal During Active Writes
 
 // Test: Consumer seals arena while producers are in middle of writing
 // Verifies: In-flight writes complete successfully, no writes to sealed arena
 func TestSealDuringActiveWrites(t *testing.T) {
-	var out bytes.Buffer
+	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &out)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
@@ -88,15 +88,15 @@ func TestSealDuringActiveWrites(t *testing.T) {
 	ingestor.flushArena(sealedArena)
 	require.EqualValues(t,
 		used,
-		out.Len(),
+		writer.Len(),
 
 		"used in sealed arena: %d different than what was written to writer: %d",
 		used,
-		out.Len(),
+		writer.Len(),
 	)
 
 	sealedArena.reset()
 
 	// Verify: All 5 writes were flushed
-	require.Equal(t, 5*100, len(out.String()))
+	require.Equal(t, 5*100, len(writer.String()))
 }

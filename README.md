@@ -73,7 +73,7 @@ offset := atomic.Add(cursor, N) - N
 The producer checks whether the reserved region fits inside the arena.
 
 If `offset + N > arena_size`  
-a. if `N > arena_size` the size is bigger than the arena (flooding) the request should be ignored and a corresponding flood error returned. 
+a. if `N > arena_size` the size is bigger than the arena (flooding) the request should be ignored and a corresponding flood error returned.  
 b. the arena is sealed and the producer is rolled back and the switch to the free arena should allow the producer to retry to write.  
 
 Near the end of an arena many producers may attempt reservations concurrently. Some of these reservations may exceed the arena size and fail. This is expected behavior. Once the consumer seals the arena and rotates to the next one, producers will automatically obtain space in the new arena.

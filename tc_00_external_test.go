@@ -14,7 +14,7 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 	writer := bytes.Buffer{}
 
 	ingestor, errCrIngestor := bytearena.NewIngestor(
-		bytearena.Size100K,
+		bytearena.Size100K(),
 		&writer,
 	)
 	require.NoError(t, errCrIngestor)
@@ -31,7 +31,7 @@ func TestHowToUse_As_ioWriter(t *testing.T) {
 
 	reporter := ingestor
 
-	ingestor.Telemetry(reporter)
+	ingestor.ReportTelemetry(reporter)
 
 	cancel()
 	<-chIngestionEnd
@@ -45,7 +45,7 @@ func TestHowToUse_Directly(t *testing.T) {
 	writer := bytes.Buffer{}
 
 	ingestor, errCrIngestor := bytearena.NewIngestor(
-		bytearena.Size100K,
+		bytearena.Size100K(),
 		&writer,
 	)
 	require.NoError(t, errCrIngestor)
@@ -58,18 +58,15 @@ func TestHowToUse_Directly(t *testing.T) {
 
 	var arr [256]byte
 
-	buf := arr[:0]
+	buf := append(arr[:0], []byte(payload)...)
 
-	buf = append(buf, []byte(payload)...)
-
-	// if errors, arena full or no active arena — fall back or drop.
 	region, errWrite := ingestor.TryWrite(uint32(len(buf)))
 	require.NoError(t, errWrite)
 	require.NotZero(t, region)
 
-	defer ingestor.EndWrite(region)
-
 	copy(region.Buf(), buf)
+
+	ingestor.EndWrite(region) // must happen before cancel — flushOnShutdown waits for writers
 
 	cancel()
 	<-chIngestionEnd

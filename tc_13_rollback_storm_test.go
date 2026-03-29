@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 12: Overflow and Rollback Storm
+// Test Case: Overflow and Rollback Storm
 
 // Test: Many producers simultaneously attempt writes near arena end.
 // Verifies: Rollback counter correctly tracks failures, no deadlocks.

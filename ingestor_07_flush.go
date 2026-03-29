@@ -1,6 +1,9 @@
 package bytearena
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Flush sealed arena contents using the provided writer function.
 //
@@ -39,12 +42,19 @@ func (m *Ingestor) flushArena(a *arena) {
 			return
 		}
 
+		if bytesWritten == 0 {
+			return // for zero progress writers
+		}
+
 		buf = buf[bytesWritten:]
 	}
 }
 
 // flushOnShutdown flushes both arenas best-effort.
-func (m *Ingestor) flushOnShutdown(ctx context.Context) {
+func (m *Ingestor) flushOnShutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	defer cancel()
+
 	// First rotation: seal whatever is currently active (call it A).
 	firstSealed := m.rotate()
 

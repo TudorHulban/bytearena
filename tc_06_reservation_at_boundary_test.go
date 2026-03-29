@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 05: Reservation Exactly at Arena Boundary
+// Test Case: Reservation Exactly at Arena Boundary
 
 // Test: Producer reserves last bytes exactly at arenaSize-1
 // Verifies:

@@ -15,11 +15,27 @@ func (m *Ingestor) ReportDrops(drops map[string]uint64) {
 		},
 	)
 
-	_, _ = m.writer.Write(append(logEntry, '\n'))
+	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
-func (m *Ingestor) Telemetry(reporter Reporter) {
-	reporter.ReportDrops(
-		m.telemetry.Snapshot(),
+func (m *Ingestor) ReportMetrics() {
+	logEntry, _ := json.Marshal(
+		map[string]any{
+			"level":     "warn",
+			"msg":       "ingestor_metrics",
+			"rollbacks": m.Metrics.NumberRollbacks.Load(),
+		},
 	)
+
+	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
+}
+
+func (m *Ingestor) ReportTelemetry(reporter Reporter) {
+	reporter.ReportDrops(
+		m.Telemetry.Snapshot(),
+	)
+
+	reporter.ReportMetrics()
+
+	m.Metrics.Reset()
 }

@@ -33,26 +33,6 @@ type arena struct { //nolint:govet
 	buf []byte
 }
 
-// Reserve attempts to reserve N bytes inside the arena.
-//
-// It returns:
-//
-//	offset >= 0  → success, producer may write into buf[offset : offset+N]
-//	offset < 0   → reservation failed (overflow)
-//
-// The caller must check (offset + N <= arenaSize).
-// If not, the caller must treat this as a failed reservation and NOT write.
-//
-// This function does NOT roll back the cursor; rollback is logical only.
-// The consumer will reset the arena when rotating.
-//
-// Returns the offset at which the producer is entitled to write.
-func (a *arena) Reserve(n uint32) uint32 {
-	// Atomically reserve space by bumping the cursor.
-	// offset = old cursor value
-	return uint32(a.cursor.Add(int32(n))) - n //nolint:gosec
-}
-
 // Enter increments the writers-in-flight counter.
 // Producers must call this before attempting a reservation.
 func (a *arena) Enter() {

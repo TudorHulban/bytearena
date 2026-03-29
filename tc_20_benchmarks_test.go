@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -39,7 +40,8 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 	_ = writer.TotalBytesWritten.Load()
 }
 
-// BenchmarkArena_FormattedPayload-16    	11457354	       107.4 ns/op	      64 B/op	       1 allocs/op
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkArena_FormattedPayload-12    	43534532	        28.83 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriter{}
 
@@ -50,22 +52,27 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; b.Loop(); i++ {
-		payload := helpers.SprintfInt(
-			`{"level":"info","msg":"user login","user_id":%d}`,
-			i,
-		)
+	// [ADD] Reusable buffer for zero-alloc JSON construction
+	buf := make([]byte, 0, 64)
 
+	for ix := 0; b.Loop(); ix++ {
+		// [EDIT] Zero-alloc JSON construction
+		buf = buf[:0]
+		buf = append(buf, `{"level":"info","msg":"user login","user_id":`...)
+		buf = strconv.AppendInt(buf, int64(ix), 10)
+		buf = append(buf, '}')
+
+		// [EDIT] Write bytes directly, no string conversion
 		ingestor.write(
-			uint32(len(payload)),
+			uint32(len(buf)),
 
 			func(destination []byte) {
-				copy(destination, []byte(payload))
+				copy(destination, buf)
 			},
 		)
 	}
 
-	_ = writer.TotalBytesWritten.Load() // force sink to stay live
+	_ = writer.TotalBytesWritten.Load() // keep sink live
 }
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem
@@ -74,7 +81,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 func BenchmarkIngestor_Write(b *testing.B) {
 	writer := helpers.CountWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(Size1M, &writer)
+	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -107,11 +114,11 @@ func BenchmarkIngestor_Write(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem -race
-// BenchmarkIngestor_WriteParallel-16    	21970140	        56.18 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_WriteParallel-12    	21925039	        54.43 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	writer := helpers.CountWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(Size100K, &writer)
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -147,22 +154,22 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	)
 }
 
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-16         	93055680	        12.98 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-16         	82779030	        14.63 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-16        	77398191	        15.31 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-16       	78271713	        15.46 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-16         	99570163	        12.05 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-16         	90364548	        13.45 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-16        	77610486	        15.36 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-16       	72310461	        16.48 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-16        	99247062	        11.94 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-16        	93658777	        13.03 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-16       	77038956	        15.55 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-16      	68408236	        17.40 ns/op	       0 B/op	       0 allocs/op
+// cpu: AMD Ryzen 5 5600U with Radeon Graphics
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-12         	86013297	        13.91 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-12         	77743675	        15.38 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-12        	73199229	        16.32 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-12       	72738548	        16.50 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-12         	90128590	        12.82 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-12         	84446210	        14.00 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-12        	69715321	        16.45 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-12       	65314560	        17.46 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-12        	95055610	        12.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-12        	88900497	        13.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-12       	74119821	        15.92 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-12      	65107002	        18.12 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
-	sizesArena := []int{Size100K, Size500K, Size1M}
+	sizesArena := []uint32{Size100K(), Size500K(), Size1M()}
 
 	for _, sizeArena := range sizesArena {
 		for _, sizeMessage := range sizesMessage {
@@ -175,7 +182,7 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 
 				func(b *testing.B) {
 					ingestor, errCrIngestor := NewIngestor(
-						uint32(sizeArena),
+						sizeArena,
 						&helpers.NoopWriter{},
 					)
 					require.NoError(b, errCrIngestor)

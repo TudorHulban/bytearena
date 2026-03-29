@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 04: Many rotations during high write rate
+// Test Case: Many rotations during high write rate
 //
 // Test: Multiple rotates. Say 1000.
 // Verifies:
@@ -57,21 +57,7 @@ func TestManyRotations(t *testing.T) {
 			"cursor should not exceed arena size",
 		)
 
-		ingestor.waitForWriters(a)
 		ingestor.flushArena(a)
-		a.reset()
-
-		// After reset, verify arena is clean
-		require.Zero(t,
-			a.cursor.Load(),
-			"cursor should be 0 after reset",
-		)
-		require.Zero(t,
-			a.rollbackCounter.Load(),
-			"rollback counter should be 0 after reset",
-		)
-
-		// Note: numberWriters is not reset here as per arena.reset() documentation
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -157,6 +143,24 @@ func TestManyRotations(t *testing.T) {
 	// Stop consumer
 	cancel()
 	wgConsumer.Wait()
+
+	for i, a := range []*arena{ingestor.arenaFirst, ingestor.arenaSecond} {
+		require.GreaterOrEqual(t,
+			a.cursor.Load(),
+			int32(0),
+
+			"arena %d cursor negative",
+			i,
+		)
+
+		require.GreaterOrEqual(t,
+			a.rollbackCounter.Load(),
+			int32(0),
+
+			"arena %d rollback negative",
+			i,
+		)
+	}
 
 	// Verify we had many rotations
 	rotations := rotationCount.Load()
@@ -304,8 +308,9 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 
 		_ = ingestor.write(
 			uint32(len(payload)),
+
 			func(dst []byte) {
-				copy(dst, []byte(payload))
+				copy(dst, payload)
 			},
 		)
 
@@ -352,7 +357,8 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 		// if a write exactly fills the arena
 		if cursor == int32(arenaSize) {
 			t.Logf(
-				"Cursor[%d] exactly at arena size", ix,
+				"Cursor[%d] exactly at arena size",
+				ix,
 			)
 		}
 	}

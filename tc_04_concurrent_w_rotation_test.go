@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 03: Concurrent Writes During Rotation
+// Test Case: Concurrent Writes During Rotation
 
 // Test: Multiple producers writing while consumer rotates arenas
 // Verifies: No writes are lost, no panics, all logs eventually appear
@@ -61,7 +61,7 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 					uint32(len(payload)),
 
 					func(dst []byte) {
-						copy(dst, []byte(payload))
+						copy(dst, payload)
 					},
 				); errWrite == nil {
 					successCount.Add(1)
