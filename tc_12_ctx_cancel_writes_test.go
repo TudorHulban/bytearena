@@ -136,7 +136,7 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 					uint32(len(payload)),
 
 					func(destination []byte) {
-						copy(destination, []byte(payload))
+						copy(destination, payload)
 					},
 				)
 				if errWrite == nil {
@@ -215,7 +215,8 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 		finalRotations,
 		int32(targetRotations),
 
-		"Should have achieved at least %d rotations", targetRotations,
+		"Should have achieved at least %d rotations",
+		targetRotations,
 	)
 
 	// Verify output integrity
@@ -231,12 +232,19 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 	require.GreaterOrEqual(t,
 		outputLines,
 		int(finalSucceeded)-numProducers,
-		"Too many writes lost: output=%d succeeded=%d", outputLines, finalSucceeded,
+
+		"Too many writes lost: output=%d succeeded=%d",
+		outputLines,
+		finalSucceeded,
 	)
+
 	require.LessOrEqual(t,
 		outputLines,
 		int(finalSucceeded),
-		"More lines than writes: output=%d succeeded=%d", outputLines, finalSucceeded,
+
+		"More lines than writes: output=%d succeeded=%d",
+		outputLines,
+		finalSucceeded,
 	)
 
 	// Verify no partial writes in output
@@ -250,7 +258,10 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 			`^p\d+-\d+-[a-z]+$`,
 			string(line),
 
-			"Line %d has invalid format: %q", i, line)
+			"Line %d has invalid format: %q",
+			i,
+			line,
+		)
 	}
 }
 

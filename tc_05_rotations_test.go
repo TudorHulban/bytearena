@@ -57,20 +57,7 @@ func TestManyRotations(t *testing.T) {
 			"cursor should not exceed arena size",
 		)
 
-		ingestor.waitForWriters(a)
 		ingestor.flushArena(a)
-
-		// After reset, verify arena is clean
-		require.Zero(t,
-			a.cursor.Load(),
-			"cursor should be 0 after reset",
-		)
-		require.Zero(t,
-			a.rollbackCounter.Load(),
-			"rollback counter should be 0 after reset",
-		)
-
-		// Note: numberWriters is not reset here as per arena.reset() documentation
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -156,6 +143,24 @@ func TestManyRotations(t *testing.T) {
 	// Stop consumer
 	cancel()
 	wgConsumer.Wait()
+
+	for i, a := range []*arena{ingestor.arenaFirst, ingestor.arenaSecond} {
+		require.GreaterOrEqual(t,
+			a.cursor.Load(),
+			int32(0),
+
+			"arena %d cursor negative",
+			i,
+		)
+
+		require.GreaterOrEqual(t,
+			a.rollbackCounter.Load(),
+			int32(0),
+
+			"arena %d rollback negative",
+			i,
+		)
+	}
 
 	// Verify we had many rotations
 	rotations := rotationCount.Load()

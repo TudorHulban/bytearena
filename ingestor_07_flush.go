@@ -1,5 +1,10 @@
 package bytearena
 
+import (
+	"context"
+	"time"
+)
+
 // Flush sealed arena contents using the provided writer function.
 //
 // The writer receives:
@@ -47,6 +52,9 @@ func (m *Ingestor) flushArena(a *arena) {
 
 // flushOnShutdown flushes both arenas best-effort.
 func (m *Ingestor) flushOnShutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	defer cancel()
+
 	// First rotation: seal whatever is currently active (call it A).
 	firstSealed := m.rotate()
 
@@ -58,7 +66,7 @@ func (m *Ingestor) flushOnShutdown() {
 	// Flush second-sealed first (it became active most recently,
 	// producers who retried land here — wait for them first).
 	if secondSealed != nil {
-		m.waitForWriters(secondSealed)
+		m.waitForWritersCtx(ctx, secondSealed)
 
 		used := secondSealed.cursor.Load()
 		if used > 0 {
@@ -68,7 +76,7 @@ func (m *Ingestor) flushOnShutdown() {
 
 	// Flush first-sealed.
 	if firstSealed != nil && firstSealed != secondSealed {
-		m.waitForWriters(firstSealed)
+		m.waitForWritersCtx(ctx, firstSealed)
 
 		used := firstSealed.cursor.Load()
 		if used > 0 {

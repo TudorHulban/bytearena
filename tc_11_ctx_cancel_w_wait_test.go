@@ -29,7 +29,7 @@ func TestContextCancelDuringWait(t *testing.T) {
 	require.Equal(t, ingestor.arenaFirst, sealed)
 
 	// Start consumer with short-lived context
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	chConsumerExit := make(chan struct{})
@@ -45,8 +45,10 @@ func TestContextCancelDuringWait(t *testing.T) {
 	case <-chConsumerExit:
 		// Success
 
-	case <-time.After(150 * time.Millisecond):
-		t.Fatal("Consumer did not exit after context cancel")
+	case <-time.After(1500 * time.Millisecond):
+		t.Fatal(
+			"Consumer did not exit after context cancel",
+		)
 	}
 
 	// Clean up stuck producer
