@@ -20,7 +20,8 @@ func (m *Ingestor) tick() {
 		return
 	}
 
-	for !m.waitForWriters(sealedArena) { // wait until no more in flight writers.
+	// wait until no more in flight writers.
+	for !m.waitForWriters(sealedArena) { //nolint:revive
 	}
 
 	used := min(sealedArena.cursor.Load(), int32(m.arenaSize)) //nolint:gosec

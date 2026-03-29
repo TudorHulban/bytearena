@@ -9,7 +9,7 @@ import (
 
 // waitForWriters blocks until writers-in-flight reaches zero.
 // should be used in tick.
-func (i *Ingestor) waitForWriters(a *arena) bool {
+func (*Ingestor) waitForWriters(a *arena) bool {
 	writers := &a.numberWriters
 	spin := 0
 
@@ -20,6 +20,7 @@ func (i *Ingestor) waitForWriters(a *arena) bool {
 
 		if spin < 20 {
 			spin++
+
 			helpers.Pause(1)
 
 			continue
