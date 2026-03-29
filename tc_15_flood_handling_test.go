@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 14: Exact Arena Size Edge Cases
+// Test Case: Exact Arena Size Edge Cases
 
 // Test: Writes of exact arena size, writes larger than arena
 // Verifies: Flood handling as described in Arena.md

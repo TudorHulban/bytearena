@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 10: Context Cancellation During Wait
+// Test Case: Context Cancellation During Wait
 
 // Test: Consumer context cancelled while waiting for writers.
 // Verifies: Shutdown happens promptly, no hangs.

@@ -39,6 +39,10 @@ func (m *Ingestor) flushArena(a *arena) {
 			return
 		}
 
+		if bytesWritten == 0 {
+			return // for zero progress writers
+		}
+
 		buf = buf[bytesWritten:]
 	}
 }

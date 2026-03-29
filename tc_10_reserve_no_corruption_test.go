@@ -1,11 +1,5 @@
 package bytearena
 
-// Test Case 09: Data corruption risk in Reserve rollback
-
-// Test:
-// Arena size is 1000.
-// Current cursor is at 800.
-
 import (
 	"bytes"
 	"context"
@@ -21,7 +15,7 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// Test Case 09: Data corruption risk in Reserve rollback
+// Test Case: Data corruption risk in Reserve rollback
 //
 // Test scenario:
 // Arena size is 1000 bytes.

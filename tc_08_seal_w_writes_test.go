@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 07: Seal During Active Writes
+// Test Case: Seal During Active Writes
 
 // Test: Consumer seals arena while producers are in middle of writing
 // Verifies: In-flight writes complete successfully, no writes to sealed arena

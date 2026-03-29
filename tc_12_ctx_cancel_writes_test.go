@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case 11: Context cancel during heavy write
+// Test Case: Context cancel during heavy write
 //
 // Test: Multiple rotates. Say 1000.
 // Verifies: After multiple rotations,
