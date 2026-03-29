@@ -321,7 +321,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 		metricsMutex.Unlock()
 
 		ingestor.flushArena(a)
-		a.reset()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

@@ -1,7 +1,6 @@
 package bytearena
 
 import (
-	"context"
 	"runtime"
 
 	"github.com/tudorhulban/bytearena/helpers"
@@ -24,30 +23,5 @@ func (*Ingestor) waitForWriters(a *arena) {
 		}
 
 		runtime.Gosched()
-	}
-}
-
-func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) bool {
-	spin := 0
-
-	for {
-		if a.numberWriters.Load() == 0 {
-			return true
-		}
-
-		if spin < 30 {
-			spin++
-
-			helpers.Pause(1)
-
-			continue
-		}
-
-		select {
-		case <-ctx.Done():
-			return false
-		default:
-			runtime.Gosched()
-		}
 	}
 }

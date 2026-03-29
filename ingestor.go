@@ -117,7 +117,7 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			m.flushOnShutdown(ctx)
+			m.flushOnShutdown()
 
 			return
 

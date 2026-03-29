@@ -1,8 +1,5 @@
 package bytearena
 
-// Test Case 16: Benchmark under 32+ goroutines.
-// tc_16_32_producers_test.go
-
 import (
 	"bytes"
 	"context"
@@ -16,7 +13,7 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// Test Case 16: Benchmark under 32 producers.
+// Test Case: Benchmark under 32 producers.
 // This test verifies the ingestor's performance and correctness under high concurrency
 // with multiple producers writing simultaneously while the consumer rotates arenas.
 
@@ -697,7 +694,7 @@ func BenchmarkConcurrentProducersFixedTime(b *testing.B) {
 func BenchmarkContentionScaling(b *testing.B) {
 	producerCounts := []int{4, 8, 16, 32}
 	arenaSizes := []Size{Size100K, Size500K, Size1M, Size2M, Size4M}
-	sealPercentages := []uint32{90, 95, 97, 99}
+	sealPercentages := []uint32{90, 95, 99}
 
 	for _, arenaSize := range arenaSizes {
 		for _, numProducers := range producerCounts {

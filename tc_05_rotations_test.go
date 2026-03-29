@@ -59,7 +59,6 @@ func TestManyRotations(t *testing.T) {
 
 		ingestor.waitForWriters(a)
 		ingestor.flushArena(a)
-		a.reset()
 
 		// After reset, verify arena is clean
 		require.Zero(t,
@@ -304,8 +303,9 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 
 		_ = ingestor.write(
 			uint32(len(payload)),
+
 			func(dst []byte) {
-				copy(dst, []byte(payload))
+				copy(dst, payload)
 			},
 		)
 
@@ -352,7 +352,8 @@ func TestManyRotations_CursorIntegrity(t *testing.T) {
 		// if a write exactly fills the arena
 		if cursor == int32(arenaSize) {
 			t.Logf(
-				"Cursor[%d] exactly at arena size", ix,
+				"Cursor[%d] exactly at arena size",
+				ix,
 			)
 		}
 	}

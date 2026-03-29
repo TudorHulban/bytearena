@@ -197,6 +197,7 @@ func TestReserveNoCorruption(t *testing.T) {
 	}
 }
 
+// BenchmarkReserveContention-16    	20811876	        59.76 ns/op	      24 B/op	       1 allocs/op
 // BenchmarkReserveContention measures performance under high rollback pressure
 func BenchmarkReserveContention(b *testing.B) {
 	arenaSize := uint32(1000)

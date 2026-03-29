@@ -9,7 +9,7 @@ import (
 )
 
 // NUMA = Non‑Uniform Memory Access
-// Test Case 17: NUMA-Style False Sharing Detection
+// Test Case: NUMA-Style False Sharing Detection
 
 // Test: Multiple cores hammer different atomics.
 // Verifies: Cache line padding works (performance, not correctness).
