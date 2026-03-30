@@ -39,6 +39,7 @@ type Ingestor struct {
 
 	tickIntervalMiliseconds uint16
 
+	isStopped     atomic.Bool
 	withTelemetry bool
 }
 
@@ -117,6 +118,7 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
+			m.isStopped.Store(true)
 			m.flushOnShutdown()
 
 			return

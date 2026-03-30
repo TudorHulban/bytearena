@@ -30,7 +30,11 @@ lint: deps
 
 test:
 	@echo -e "$(info_color)==> $@ $(no_color)"
-	@go test ./... -race -count=1 -v
+	@go list ./... | while read pkg; do \
+		echo "==> Testing $$pkg"; \
+		go test -race -count=1 -v $$pkg || exit $$?; \
+	done
+
 
 test-local: 
 	@go test -failfast -count=1 ./... -json -cover -race | tparse -smallscreen

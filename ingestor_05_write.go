@@ -123,6 +123,10 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 		// Spin until the consumer has swapped in a fresh arena.
 		for m.active.Load() == stale {
+			if m.isStopped.Load() { // ← consumer is gone, bail out
+				return ErrWriteShuttingDown
+			}
+
 			runtime.Gosched()
 		}
 

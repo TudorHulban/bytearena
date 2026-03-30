@@ -65,7 +65,6 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 		}
 
 		ingestor.flushArena(a)
-		a.reset()
 
 		// When we hit target rotations, trigger shutdown
 		if rotations >= targetRotations && !shutdownStarted.Load() {
