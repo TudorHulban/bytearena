@@ -4,40 +4,71 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // All benchmarks were done on Rocky 10.
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16    	87104852	        13.50 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkArena_ConstantPayload(b *testing.B) {
-	writer := helpers.CountWriter{}
 
-	ingestor, errCrIngestor := NewIngestor(1024*1024, &writer)
-	require.NoError(b, errCrIngestor)
+// go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem
+// go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkArena_ConstantPayload-16    	98944557	        12.34 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkArena_ConstantPayload(b *testing.B) {
+	writer := helpers.CountWriterNoBuffer{}
+
+	ingestor, err := NewIngestor(Size500K(), &writer)
+	require.NoError(b, err)
 	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := []byte(`{"level":"info","msg":"user login","user_id":123}`)
 
+	// Expected total bytes once all events are fully ingested.
+	expectedBytes := (b.N * len(payload))
+
 	b.ReportAllocs()
 	b.ResetTimer()
+
+	start := time.Now()
 
 	for b.Loop() {
 		ingestor.write(
 			uint32(len(payload)),
 
-			func(destination []byte) {
-				copy(destination, payload)
+			func(dst []byte) {
+				copy(dst, payload)
 			},
 		)
 	}
 
-	_ = writer.TotalBytesWritten.Load()
+	// Wait until ingestion has fully caught up.
+	for writer.TotalBytesWritten.Load() >= int64(expectedBytes) {
+		// Optional: tiny sleep to avoid hammering the atomics.
+		runtime.Gosched()
+	}
+
+	elapsed := time.Since(start)
+
+	b.StopTimer()
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	cancel()
+	<-chIngestionEnd
 }
 
 // go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem
@@ -46,80 +77,186 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkArena_FormattedPayload-12    	43534532	        28.83 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
-	writer := helpers.CountWriter{}
+	writer := helpers.CountWriterWithBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(1024, &writer)
-	require.NoError(b, errCrIngestor)
-	require.NotNil(b, ingestor)
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	// [ADD] Reusable buffer for zero-alloc JSON construction
-	buf := make([]byte, 0, 64)
-
-	for ix := 0; b.Loop(); ix++ {
-		// [EDIT] Zero-alloc JSON construction
-		buf = buf[:0]
-		buf = append(buf, `{"level":"info","msg":"user login","user_id":`...)
-		buf = strconv.AppendInt(buf, int64(ix), 10)
-		buf = append(buf, '}')
-
-		// [EDIT] Write bytes directly, no string conversion
-		ingestor.write(
-			uint32(len(buf)),
-
-			func(destination []byte) {
-				copy(destination, buf)
-			},
-		)
-	}
-
-	_ = writer.TotalBytesWritten.Load() // keep sink live
-}
-
-// go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem -race
-// BenchmarkIngestor_Write-16    	99849817	        12.45 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_Write(b *testing.B) {
-	writer := helpers.CountWriter{}
-
-	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
-	require.NoError(b, errCrIngestor)
+	ingestor, err := NewIngestor(1024, &writer)
+	require.NoError(b, err)
 	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+	// Reusable buffer for zero-alloc JSON construction
+	buf := make([]byte, 0, 64)
+
+	// We will accumulate total bytes written during the loop
+	var totalBytes int
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	var written atomic.Int64
+	start := time.Now()
 
-	for b.Loop() {
-		if _, errWrite := ingestor.Write(payload); errWrite == nil {
-			written.Add(1)
-		}
+	for ix := 0; b.Loop(); ix++ {
+		// Zero-alloc JSON construction
+		buf = buf[:0]
+		buf = append(buf, `{"level":"info","msg":"user login","user_id":`...)
+		buf = strconv.AppendInt(buf, int64(ix), 10)
+		buf = append(buf, '}')
+
+		totalBytes = totalBytes + (len(buf))
+
+		ingestor.write(
+			uint32(len(buf)),
+
+			func(dst []byte) {
+				copy(dst, buf)
+			},
+		)
 	}
+
+	// Wait until ingestion has fully caught up
+	for writer.TotalBytesWritten.Load() < int64(totalBytes) {
+		runtime.Gosched()
+	}
+
+	elapsed := time.Since(start)
+
+	b.StopTimer()
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
 
 	cancel()
 	<-chIngestionEnd
+}
 
-	b.Log(written.Load())
+// go test -run '^$' -bench '^BenchmarkIngestor_Write_End2End$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_Write_End2End$' -benchmem -race
+// BenchmarkIngestor_Write_End2End-16      63739382                19.99 ns/op             12.81 Gb/s            67 B/op          0 allocs/op
+func BenchmarkIngestor_Write_End2End(b *testing.B) {
+	writer := helpers.CountWriterWithBuffer{}
 
-	require.EqualValues(b,
-		writer.TotalBytesWritten.Load(),
-		written.Load()*int64(len(payload)),
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
+	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	start := time.Now()
+
+	for b.Loop() {
+		_, _ = ingestor.Write(payload)
+	}
+
+	// --- QUIESCENCE DETECTION ---
+	// Stop when TotalBytesWritten stops increasing for ~500 ns.
+	last := writer.TotalBytesWritten.Load()
+
+	for {
+		helpers.Pause(30) // ~500 ns on ryzen 5800h
+
+		current := writer.TotalBytesWritten.Load()
+		if current == last {
+			break // no progress → ingestion quiescent
+		}
+
+		last = current
+	}
+
+	elapsed := time.Since(start)
+
+	b.StopTimer()
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
 	)
+
+	// Gb/s throughput
+	bytesWritten := float64(writer.TotalBytesWritten.Load())
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (bytesWritten * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s")
+
+	cancel()
+	<-chIngestionEnd
+}
+
+// BenchmarkIngestor_Write_Noop-16    	95407026	        12.26 ns/op	        20.89 Gb/s	       0 B/op	       0 allocs/op
+func BenchmarkIngestor_Write_Noop(b *testing.B) {
+	writer := helpers.NoopWriter{}
+
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
+	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	start := time.Now()
+
+	for b.Loop() {
+		_, _ = ingestor.Write(payload)
+	}
+
+	// --- QUIESCENCE DETECTION ---
+	// Ingestion is finished when the active arena stops switching.
+	last := ingestor.active.Load()
+
+	for {
+		helpers.Pause(30) // ~500 ns on Ryzen 5800H
+
+		current := ingestor.active.Load()
+		if current == last {
+			break // no arena rotation → ingestion quiescent
+		}
+
+		last = current
+	}
+
+	elapsed := time.Since(start)
+
+	b.StopTimer()
+
+	// ns/op (end-to-end ingestion)
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	// Gb/s throughput (payload size × events)
+	totalBytes := float64(b.N * len(payload))
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (totalBytes * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s")
+
+	cancel()
+	<-chIngestionEnd
 }
 
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem -race
 // BenchmarkIngestor_WriteParallel-12    	21925039	        54.43 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_WriteParallel(b *testing.B) {
-	writer := helpers.CountWriter{}
+	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(b, errCrIngestor)

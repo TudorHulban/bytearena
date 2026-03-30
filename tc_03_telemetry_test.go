@@ -18,7 +18,7 @@ import (
 // synchronization point between producer retry and consumer rotation.
 
 func Test_03_01_Ingestor_CheckRollback(t *testing.T) {
-	var writer helpers.CountWriter
+	var writer helpers.CountWriterWithBuffer
 
 	ingestor, errCrIngestor := NewIngestor(
 		50,
