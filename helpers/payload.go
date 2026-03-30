@@ -27,6 +27,7 @@ func MakePayloadNumbered(length, number int, char byte) []byte {
 
 	if n > length {
 		copy(result, num[:length])
+
 		return result
 	}
 

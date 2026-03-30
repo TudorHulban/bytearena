@@ -118,7 +118,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	region, errWrite := m.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errWrite == ErrWriteArenaFull {
+	if errWrite == ErrWriteArenaFull { //nolint:errorlint
 		stale := m.active.Load()
 
 		// Spin until the consumer has swapped in a fresh arena.
