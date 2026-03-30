@@ -1,17 +1,22 @@
 package helpers
 
-import "sync/atomic"
+import (
+	"bytes"
+	"sync/atomic"
+)
 
 // real writer that has observable side effects
 // thus the compiler cannot eliminate code.
 type CountWriter struct {
 	TotalBytesWritten atomic.Int64
 	NumberWrites      atomic.Int64
+
+	Buf bytes.Buffer
 }
 
-func (w *CountWriter) Write(p []byte) (int, error) {
-	w.TotalBytesWritten.Add(int64(len(p)))
+func (w *CountWriter) Write(payload []byte) (int, error) {
+	w.TotalBytesWritten.Add(int64(len(payload)))
 	w.NumberWrites.Add(1)
 
-	return len(p), nil
+	return w.Buf.Write(payload)
 }

@@ -124,11 +124,13 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 
 				// Random payload size between 10-80 bytes to create pressure
 				size := 10 + r.Intn(70)
+
 				payload := fmt.Sprintf(
 					"p%d-%d-%s\n",
 					producerID,
 					writeCount,
-					randomString(size-9)) // Adjust for prefix
+					randomString(size-9), // Adjust for prefix
+				)
 
 				writesAttempted.Add(1)
 

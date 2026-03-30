@@ -1,5 +1,7 @@
 package bytearena
 
+import "runtime"
+
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
 //
@@ -113,10 +115,22 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 //
 // The write function receives a byte slice of length n and must fill it.
 func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
-	// Try to region space (with one retry).
-	region, canWrite := m.TryWrite(n)
-	if canWrite != nil {
-		return canWrite
+	region, errWrite := m.TryWrite(n)
+
+	// If the arena was full, wait for the consumer to rotate, then retry once.
+	if errWrite == ErrWriteArenaFull {
+		stale := m.active.Load()
+
+		// Spin until the consumer has swapped in a fresh arena.
+		for m.active.Load() == stale {
+			runtime.Gosched()
+		}
+
+		region, errWrite = m.beginWrite(n)
+	}
+
+	if errWrite != nil {
+		return errWrite
 	}
 
 	// Mark write complete.
