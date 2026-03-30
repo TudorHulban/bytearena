@@ -40,6 +40,9 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 	_ = writer.TotalBytesWritten.Load()
 }
 
+// go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem
+// go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem -race
+
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkArena_FormattedPayload-12    	43534532	        28.83 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
