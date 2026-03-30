@@ -1,11 +1,12 @@
 name: Cleanup Orphaned CI Runs
 
-# runs only in main branch
-
 on:
   schedule:
     - cron: '0 */6 * * *' # every 6 hours
   workflow_dispatch:
+  push:
+    branches-ignore:
+      - main
 
 jobs:
   cleanup-orphan-runs:
@@ -46,8 +47,11 @@ jobs:
           echo "=== ALL RUNS ==="
           echo "$ALL_RUNS" | jq -r '.[] | "\(.databaseId) \(.headBranch) \(.createdAt)"'
 
+          # Convert branches.txt → JSON array
+          BRANCHES_JSON=$(jq -R -s 'split("\n") | map(select(length > 0))' branches.txt)
+
           ORPHAN_RUNS=$(echo "$ALL_RUNS" | jq \
-            --argfile branches branches.txt \
+            --argjson branches "$BRANCHES_JSON" \
             --argjson now "$CURRENT_TIME" \
             --argjson max_age "$MAX_AGE_SECONDS" '
               map(
