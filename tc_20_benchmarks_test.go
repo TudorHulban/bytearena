@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"runtime"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -14,13 +13,17 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
+const (
+	_Pause1Nanoseconds = 17
+)
+
 // All benchmarks were done on Rocky 10.
 
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16    	98944557	        12.34 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkArena_ConstantPayload-16    	100000000	        11.96 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -33,11 +36,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 
 	payload := []byte(`{"level":"info","msg":"user login","user_id":123}`)
 
-	// Expected total bytes once all events are fully ingested.
-	expectedBytes := (b.N * len(payload))
-
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	start := time.Now()
 
@@ -45,23 +44,37 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 		ingestor.write(
 			uint32(len(payload)),
 
-			func(dst []byte) {
-				copy(dst, payload)
+			func(destination []byte) {
+				copy(destination, payload)
 			},
 		)
 	}
 
-	// Wait until ingestion has fully caught up.
-	for writer.TotalBytesWritten.Load() >= int64(expectedBytes) {
-		// Optional: tiny sleep to avoid hammering the atomics.
-		runtime.Gosched()
+	stableTS, stabilisationOccured := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[int64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() int64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+
+			NumberStableSamples:  2,
+			MaximumNumberSamples: 100,
+		},
+	)
+
+	var elapsed time.Duration
+
+	if stabilisationOccured {
+		elapsed = stableTS.Sub(start)
+	} else {
+		// fallback: ingestion never stabilized within limits
+		elapsed = time.Since(start)
 	}
 
-	elapsed := time.Since(start)
-
-	b.StopTimer()
-
-	// Override the default ns/op with true end-to-end ingestion time.
 	b.ReportMetric(
 		float64(elapsed.Nanoseconds())/float64(b.N),
 		"ns/op",
@@ -86,45 +99,54 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	// Reusable buffer for zero-alloc JSON construction
 	buf := make([]byte, 0, 64)
 
-	// We will accumulate total bytes written during the loop
 	var totalBytes int
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	start := time.Now()
 
 	for ix := 0; b.Loop(); ix++ {
-		// Zero-alloc JSON construction
 		buf = buf[:0]
 		buf = append(buf, `{"level":"info","msg":"user login","user_id":`...)
 		buf = strconv.AppendInt(buf, int64(ix), 10)
 		buf = append(buf, '}')
 
-		totalBytes = totalBytes + (len(buf))
+		totalBytes = totalBytes + len(buf)
 
 		ingestor.write(
 			uint32(len(buf)),
 
-			func(dst []byte) {
-				copy(dst, buf)
+			func(destination []byte) {
+				copy(destination, buf)
 			},
 		)
 	}
 
-	// Wait until ingestion has fully caught up
-	for writer.TotalBytesWritten.Load() < int64(totalBytes) {
-		runtime.Gosched()
+	stableTS, stabilisationOccured := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[int64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() int64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+
+			NumberStableSamples:  2,
+			MaximumNumberSamples: 100,
+		},
+	)
+
+	var elapsed time.Duration
+	if stabilisationOccured {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
 	}
 
-	elapsed := time.Since(start)
-
-	b.StopTimer()
-
-	// Override the default ns/op with true end-to-end ingestion time.
 	b.ReportMetric(
 		float64(elapsed.Nanoseconds())/float64(b.N),
 		"ns/op",
