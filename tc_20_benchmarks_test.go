@@ -361,7 +361,7 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
 	b.ReportAllocs()
-	b.SetParallelism(1)
+	b.SetParallelism(7)
 	b.ResetTimer()
 
 	var written atomic.Int64

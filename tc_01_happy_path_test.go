@@ -87,3 +87,37 @@ func Test_01_Ingestor_SingleWrite_Parallel(t *testing.T) {
 		ingestor.isStopped.Load(),
 	)
 }
+
+func Test_01_Ingestor_ioWriter_Parallel(t *testing.T) {
+	var writer bytes.Buffer
+
+	ingestor, errCrIngestor := NewIngestor(1024, &writer)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := "hi!"
+
+	helpers.RunParallel(t,
+		16,
+		100,
+
+		func() error {
+			_, errWrite := ingestor.Write([]byte(payload))
+
+			return errWrite
+		},
+
+		ErrWriteShuttingDown,
+	)
+
+	cancel()
+	<-chIngestionEnd
+
+	require.True(t,
+		ingestor.isStopped.Load(),
+	)
+}
