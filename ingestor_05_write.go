@@ -121,10 +121,14 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errWrite == ErrWriteArenaFull { //nolint:errorlint
-		stale := m.active.Load()
+		staleArena := m.active.Load()
+		staleEpoch := staleArena.epoch.Load()
 
 		// Spin until the consumer has swapped in a fresh arena.
-		for m.active.Load() == stale {
+		// When the consumer recycles arena A (after the double rotation), reset() bumps stale.epoch,
+		// the second condition goes false,
+		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
+		for m.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
 			if m.isStopped.Load() { // ← consumer is gone, bail out
 				return ErrWriteShuttingDown
 			}

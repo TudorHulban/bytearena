@@ -152,10 +152,10 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_Write_End2End$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_Write_End2End$' -benchmem -race
-// BenchmarkIngestor_Write_End2End-16      63739382                19.99 ns/op             12.81 Gb/s            67 B/op          0 allocs/op
-func BenchmarkIngestor_Write_End2End(b *testing.B) {
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
+// BenchmarkIngestor_ioWriter_End2End-12    	54829107	        58.08 ns/op	         4.407 Gb/s	      78 B/op	       0 allocs/op
+func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, err := NewIngestor(Size1M(), &writer)
@@ -217,7 +217,8 @@ func BenchmarkIngestor_Write_End2End(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Write_Parallel$' -benchmem
 
-func BenchmarkIngestor_Write_Parallel(b *testing.B) {
+// BenchmarkIngestor_ioWriter_Parallel-12     12936450                86.77 ns/op              2.945 Gb/s            0 B/op          0 allocs/op
+func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
 	ingestor, err := NewIngestor(Size1M(), &writer)
@@ -230,7 +231,7 @@ func BenchmarkIngestor_Write_Parallel(b *testing.B) {
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
 
 	b.ReportAllocs()
-	b.SetParallelism(2)
+	b.SetParallelism(16)
 
 	start := time.Now()
 
@@ -284,8 +285,8 @@ func BenchmarkIngestor_Write_Parallel(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Write_Noop$' -benchmem
 
-// BenchmarkIngestor_Write_Noop-16    	98553408	        12.00 ns/op	        21.34 Gb/s	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_Write_Noop(b *testing.B) {
+// BenchmarkIngestor_ioWriter_Noop-16    	98553408	        12.00 ns/op	        21.34 Gb/s	       0 B/op	       0 allocs/op
+func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
 	ingestor, err := NewIngestor(Size1M(), &writer)
@@ -345,10 +346,10 @@ func BenchmarkIngestor_Write_Noop(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem -race
-// BenchmarkIngestor_WriteParallel-12    	21925039	        54.43 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_WriteParallel(b *testing.B) {
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-12      11196447               102.1 ns/op            77 B/op          0 allocs/op
+func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
@@ -361,7 +362,7 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
 	b.ReportAllocs()
-	b.SetParallelism(7)
+	b.SetParallelism(16)
 	b.ResetTimer()
 
 	var written atomic.Int64

@@ -12,6 +12,8 @@ import (
 // Methods are defined elsewhere; this file only defines the data layout.
 type arena struct { //nolint:govet
 	// Hot atomics (each on its own cache line).
+	epoch atomic.Uint64
+	_     [56]byte // pad to 64 bytes
 
 	// cursor is the current write position (in bytes) inside buf.
 	// Producers use atomic fetch-add on this to reserve regions.
@@ -63,4 +65,5 @@ func (a *arena) reset() {
 	// the next waitForWriters call permanently.
 
 	a.rollbackCounter.Store(0)
+	a.epoch.Add(1)
 }

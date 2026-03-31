@@ -10,9 +10,11 @@ import (
 func RunParallel(t *testing.T, workers, noIterations int, fn func() error, allowedErrors ...error) {
 	t.Helper()
 
-	var wg sync.WaitGroup
-	var stop atomic.Bool
-	var totalDone atomic.Int64 // Shared counter across all workers
+	var (
+		wg        sync.WaitGroup
+		stop      atomic.Bool
+		totalDone atomic.Int64 // Shared counter across all workers
+	)
 
 	isAllowed := func(err error) bool {
 		for _, allowed := range allowedErrors {

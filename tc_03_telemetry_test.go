@@ -91,6 +91,11 @@ func Test_03_01_Ingestor_CheckRollback(t *testing.T) {
 	)
 
 	require.GreaterOrEqual(t,
+		ingestor.arenaFirst.epoch.Load(),
+		uint64(1),
+	)
+
+	require.GreaterOrEqual(t,
 		ingestor.Metrics.NumberRollbacks.Load(),
 		uint64(1),
 	)
