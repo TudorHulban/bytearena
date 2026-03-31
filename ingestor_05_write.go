@@ -2,6 +2,8 @@ package bytearena
 
 import "runtime"
 
+// TODO: check arena is stopped each time?
+
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
 //

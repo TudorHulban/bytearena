@@ -37,6 +37,10 @@ func Test_01_Ingestor_SingleWrite(t *testing.T) {
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
+	require.True(t,
+		ingestor.isStopped.Load(),
+	)
+
 	require.Equal(t,
 		payload,
 		writer.String(),
