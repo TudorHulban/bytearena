@@ -1,10 +1,8 @@
 name: Cleanup Orphaned CI Runs
 
-# runs only in main branch
-
 on:
   schedule:
-    - cron: '0 */6 * * *' # every 6 hours
+    - cron: '0 0 */5 * *'
   workflow_dispatch:
 
 jobs:
@@ -16,7 +14,7 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
-      MAX_AGE_HOURS: 1   # safety buffer to avoid race conditions
+      MAX_AGE_HOURS: 1
 
     steps:
       - name: Checkout (for git remote)
@@ -73,5 +71,33 @@ jobs:
               BRANCH=$(j '.headBranch')
 
               echo "Deleting run $ID (branch: $BRANCH)"
+              gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "Failed to delete $ID"
+            done
+
+      - name: Cleanup self-runs (keep only newest)
+        run: |
+          echo "=== CLEANUP SELF-RUNS ==="
+
+          SELF_RUNS=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "Cleanup Orphaned CI Runs" \
+            --json databaseId,createdAt \
+            --limit 100)
+
+          echo "$SELF_RUNS" | jq -r '.[] | "\(.databaseId) \(.createdAt)"'
+
+          # Sort by createdAt ascending, drop the last (most recent)
+          OLD_SELF_RUNS=$(echo "$SELF_RUNS" | jq 'sort_by(.createdAt) | .[:-1]')
+
+          echo "=== OLD SELF RUNS ==="
+          echo "$OLD_SELF_RUNS" | jq -r '.[] | "\(.databaseId)"'
+
+          echo "$OLD_SELF_RUNS" |
+            jq -r '.[] | @base64' |
+            while read RUN; do
+              j() { echo "$RUN" | base64 --decode | jq -r "$1"; }
+              ID=$(j '.databaseId')
+
+              echo "Deleting self-run $ID"
               gh run delete "$ID" --repo "$GITHUB_REPOSITORY" || echo "Failed to delete $ID"
             done
