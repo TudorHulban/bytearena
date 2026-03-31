@@ -215,6 +215,73 @@ func BenchmarkIngestor_Write_End2End(b *testing.B) {
 	<-chIngestionEnd
 }
 
+// go test -run '^$' -bench '^BenchmarkIngestor_Write_Parallel$' -benchmem
+
+func BenchmarkIngestor_Write_Parallel(b *testing.B) {
+	writer := helpers.CountWriterNoBuffer{}
+
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
+	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	b.ReportAllocs()
+	b.SetParallelism(2)
+
+	start := time.Now()
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			for pb.Next() {
+				_, _ = ingestor.Write(payload)
+			}
+		},
+	)
+
+	stableTS, ok := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[int64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() int64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond, // or the measured Pause(30) duration
+
+			NumberStableSamples:  2,   // require 2 identical samples
+			MaximumNumberSamples: 100, // safety cap
+		},
+	)
+
+	var elapsed time.Duration
+
+	if ok {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	bytesWritten := float64(writer.TotalBytesWritten.Load())
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (bytesWritten * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s") // Gb/s throughput
+
+	cancel()
+	<-chIngestionEnd
+}
+
 // go test -run '^$' -bench '^BenchmarkIngestor_Write_Noop$' -benchmem
 
 // BenchmarkIngestor_Write_Noop-16    	98553408	        12.00 ns/op	        21.34 Gb/s	       0 B/op	       0 allocs/op
