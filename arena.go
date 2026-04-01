@@ -33,6 +33,8 @@ type arena struct { //nolint:govet
 	// buf is the underlying byte storage for this arena.
 	// Its capacity defines the arena size.
 	buf []byte
+
+	telemetryObservableRollback func(add uint64)
 }
 
 // Enter increments the writers-in-flight counter.
@@ -63,6 +65,16 @@ func (a *arena) reset() {
 	// is reused. Resetting it here would race with in-flight writers
 	// still holding Enter(), corrupting the count to -1 and hanging
 	// the next waitForWriters call permanently.
+
+	if a.telemetryObservableRollback != nil {
+		a.telemetryObservableRollback(
+			uint64(a.rollbackCounter.Swap(0)), //nolint:gosec
+		)
+
+		a.epoch.Add(1)
+
+		return
+	}
 
 	a.rollbackCounter.Store(0)
 	a.epoch.Add(1)

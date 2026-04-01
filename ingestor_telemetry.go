@@ -21,9 +21,11 @@ func (m *Ingestor) ReportDrops(drops map[string]uint64) {
 func (m *Ingestor) ReportMetrics() {
 	logEntry, _ := json.Marshal(
 		map[string]any{
-			"level":     "warn",
-			"msg":       "ingestor_metrics",
-			"rollbacks": m.Metrics.NumberRollbacks.Load(),
+			"level":        "warn",
+			"msg":          "ingestor_metrics",
+			"rollbacks":    m.Metrics.NumberRollbacks.Load(),
+			"epoch_arena1": m.arenaFirst.epoch.Load(),
+			"epoch_arena2": m.arenaSecond.epoch.Load(),
 		},
 	)
 

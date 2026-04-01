@@ -154,7 +154,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
-// BenchmarkIngestor_ioWriter_End2End-12    	54829107	        58.08 ns/op	         4.407 Gb/s	      78 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_End2End-16    	61535053	        20.61 ns/op	        12.42 Gb/s	      69 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -215,9 +215,9 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_Write_Parallel$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Parallel-12     12936450                86.77 ns/op              2.945 Gb/s            0 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel-16          11662246                97.58 ns/op              2.617 Gb/s            0 B/op          0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -348,7 +348,7 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-12      11196447               102.1 ns/op            77 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	10167193	       103.9 ns/op	      85 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 

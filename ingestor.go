@@ -73,6 +73,11 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		}
 	}
 
+	if result.withTelemetry {
+		result.arenaFirst.telemetryObservableRollback = result.Metrics.IncrementRollback
+		result.arenaSecond.telemetryObservableRollback = result.Metrics.IncrementRollback
+	}
+
 	// optimization - Precompute the seal threshold
 	result.arenaSealThreshold = int32((arenaSize * result.arenaSealPercentage) / 100) //nolint:gosec
 

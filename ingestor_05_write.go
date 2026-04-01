@@ -80,10 +80,6 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		if cur > limit {
 			arena.AddRollback()
 
-			if m.withTelemetry {
-				m.Metrics.IncrementRollback()
-			}
-
 			arena.Leave()
 			m.signalFlush()
 
