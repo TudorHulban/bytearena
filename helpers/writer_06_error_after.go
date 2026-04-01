@@ -24,7 +24,8 @@ func NewErrorAfterWriter() *ErrorAfterWriter {
 
 func (w *ErrorAfterWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
-		return 0, ErrPartialWrite
+		return 0,
+			ErrPartialWrite
 	}
 
 	n := int(float64(len(p)) * w.percentPartialWrite)
@@ -36,5 +37,6 @@ func (w *ErrorAfterWriter) Write(p []byte) (int, error) {
 		n = len(p)
 	}
 
-	return n, ErrPartialWrite
+	return n,
+		ErrPartialWrite
 }

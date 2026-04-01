@@ -1,17 +1,17 @@
 package bytearena
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tudorhulban/bytearena/helpers"
 )
 
 func Test_02_02_Ingestor_OversizeWrite(t *testing.T) {
-	var writer helpers.NoopWriter
+	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(
 		1,
@@ -49,9 +49,12 @@ func Test_02_02_Ingestor_OversizeWrite(t *testing.T) {
 		ingestor.Metrics.NumberRollbacks.Load(),
 	)
 
-	ingestor.ReportTelemetry(ingestor)
+	require.EqualValues(t,
+		1,
+		ingestor.Registry.load(TErrWriteMessageTooLarge),
+	)
 
-	ingestor.Metrics.Reset()
+	ingestor.ReportTelemetry(ingestor)
 
 	require.Zero(t,
 		ingestor.Metrics.NumberRollbacks.Load(),

@@ -15,7 +15,3 @@ type Metrics struct {
 func (m *Metrics) IncrementRollback(with uint64) {
 	m.NumberRollbacks.Add(with)
 }
-
-func (m *Metrics) Reset() {
-	m.NumberRollbacks.Store(0)
-}

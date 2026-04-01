@@ -51,10 +51,10 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 	}
 
 	stableTS, stabilisationOccured := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[int64]{
+		helpers.ParamsDetectStabilization[uint64]{
 			InitialValue: writer.TotalBytesWritten.Load(),
 
-			GetCurrentValue: func() int64 {
+			GetCurrentValue: func() uint64 {
 				return writer.TotalBytesWritten.Load()
 			},
 
@@ -120,10 +120,10 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 	}
 
 	stableTS, stabilisationOccured := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[int64]{
+		helpers.ParamsDetectStabilization[uint64]{
 			InitialValue: writer.TotalBytesWritten.Load(),
 
-			GetCurrentValue: func() int64 {
+			GetCurrentValue: func() uint64 {
 				return writer.TotalBytesWritten.Load()
 			},
 
@@ -244,10 +244,10 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	)
 
 	stableTS, ok := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[int64]{
+		helpers.ParamsDetectStabilization[uint64]{
 			InitialValue: writer.TotalBytesWritten.Load(),
 
-			GetCurrentValue: func() int64 {
+			GetCurrentValue: func() uint64 {
 				return writer.TotalBytesWritten.Load()
 			},
 
@@ -283,7 +283,7 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_Write_Noop$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
 
 // BenchmarkIngestor_ioWriter_Noop-16    	98553408	        12.00 ns/op	        21.34 Gb/s	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
@@ -307,11 +307,13 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 	}
 
 	stableTS, stabilisationOccured := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[*arena]{
-			InitialValue: ingestor.active.Load(),
+		helpers.ParamsDetectStabilization[uint64]{
+			InitialValue: uint64(0),
 
-			GetCurrentValue: func() *arena {
-				return ingestor.active.Load()
+			GetCurrentValue: func() uint64 {
+				e1, e2 := ingestor.GetArenaEpochs()
+
+				return e1 + e2
 			},
 
 			PauseFn:         func() { helpers.Pause(30) }, // ~500ns on your hardware

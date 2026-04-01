@@ -29,7 +29,19 @@ func WithTickMiliseconds(interval uint16) Options {
 			return errors.New("tick value cannot be zero")
 		}
 
-		i.tickIntervalMiliseconds = interval
+		i.milisecondsTickInterval = interval
+
+		return nil
+	}
+}
+
+func WithUnblockFlushMiliseconds(interval uint16) Options {
+	return func(i *Ingestor) error {
+		if interval == 0 {
+			return errors.New("unblock flush value cannot be zero")
+		}
+
+		i.milisecondsUnblockFlush = interval
 
 		return nil
 	}
@@ -46,6 +58,14 @@ func WithTelemetry() Options {
 func WithTelemetryWriter(w io.Writer) Options {
 	return func(i *Ingestor) error {
 		i.writerTelemetry = w
+
+		return nil
+	}
+}
+
+func WithErrorsWriter(w io.Writer) Options {
+	return func(i *Ingestor) error {
+		i.writerErrors = w
 
 		return nil
 	}

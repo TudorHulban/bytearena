@@ -1,8 +1,8 @@
 package bytearena
 
-import "runtime"
-
-// TODO: is check arena is stopped each time needed?
+import (
+	"runtime"
+)
 
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
@@ -15,12 +15,16 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 	// First attempt.
 	region, errWrite := m.beginWrite(n)
 	if errWrite == nil {
+		m.Registry.loadError(errWrite)
+
 		return region, nil
 	}
 
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
 	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
+		m.Registry.Inc(TErrWriteMessageTooLarge)
+
 		return WriteRegion{}, errWrite
 	}
 
@@ -126,6 +130,8 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
 		for m.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
 			if m.isStopped.Load() { // ← consumer is gone, bail out
+				m.Registry.Inc(TErrWriteShuttingDown)
+
 				return ErrWriteShuttingDown
 			}
 

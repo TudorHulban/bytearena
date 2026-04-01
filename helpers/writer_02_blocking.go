@@ -1,6 +1,11 @@
 package helpers
 
-import "sync"
+import (
+	"bytes"
+	"io"
+	"sync"
+	"sync/atomic"
+)
 
 // BlockingWriter is an io.Writer that performs normal writes for a limited
 // number of calls. After the configured number of writes, all subsequent
@@ -24,27 +29,37 @@ import "sync"
 //
 // - A slow disk that stops responding.
 type BlockingWriter struct {
-	mu sync.Mutex
+	Buf bytes.Buffer
 
-	maxWrites     int
-	currentWrites int
+	maxWrites     atomic.Uint64
+	currentWrites atomic.Uint64
+
+	mu sync.Mutex
 }
+
+var _ io.Writer = &BlockingWriter{}
 
 func NewBlockingWriter(maxWrites int) *BlockingWriter {
-	return &BlockingWriter{
-		maxWrites: maxWrites,
+	result := BlockingWriter{
+		maxWrites: atomic.Uint64{},
 	}
+
+	result.maxWrites.Add(uint64(maxWrites))
+
+	return &result
 }
 
-func (w *BlockingWriter) Write(p []byte) (int, error) {
+func (w *BlockingWriter) Write(payload []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.currentWrites >= w.maxWrites {
-		select {} // block forever
+	if w.currentWrites.Load() >= w.maxWrites.Load() {
+		// blocks forever
+		// A hung writer must never cause producers to block or leak goroutines.
+		select {}
 	}
 
-	w.currentWrites++
+	w.currentWrites.Add(1)
 
-	return len(p), nil
+	return w.Buf.Write(payload)
 }

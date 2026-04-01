@@ -2,7 +2,10 @@ package bytearena
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // Flush sealed arena contents using the provided writer function.
@@ -34,16 +37,36 @@ func (m *Ingestor) flushArena(a *arena) {
 
 	buf := a.buf[:used]
 
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		time.Duration(m.milisecondsUnblockFlush)*time.Millisecond,
+	)
+	defer cancel()
+
 	for len(buf) > 0 {
-		bytesWritten, errWrite := m.writer.Write(buf)
+		bytesWritten, errWrite := helpers.WriteWithContext(ctx, m.writer, buf)
+
+		// Partial writes are allowed even when err != nil.
+		// We stop because the caller cannot recover meaningfully.
 		if errWrite != nil {
-			// Partial writes are allowed even when err != nil.
-			// We stop because the caller cannot recover meaningfully.
+			m.Registry.loadError(errWrite)
+
+			fmt.Fprintf(
+				m.writerErrors,
+				"flushArena: %s\n",
+				errWrite.Error(),
+			)
+
 			return
 		}
 
 		if bytesWritten == 0 {
-			return // for zero progress writers
+			// Zero progress → abort
+			_, _ = m.writerErrors.Write(
+				[]byte("writer made zero progress\n"),
+			)
+
+			return
 		}
 
 		buf = buf[bytesWritten:]

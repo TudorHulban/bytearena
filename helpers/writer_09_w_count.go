@@ -8,11 +8,11 @@ import (
 // real writer that has observable side effects
 // thus the compiler cannot eliminate code.
 type CountWriterNoBuffer struct {
-	TotalBytesWritten atomic.Int64
+	TotalBytesWritten atomic.Uint64
 }
 
 func (w *CountWriterNoBuffer) Write(payload []byte) (int, error) {
-	w.TotalBytesWritten.Add(int64(len(payload)))
+	w.TotalBytesWritten.Add(uint64(len(payload)))
 
 	return len(payload), nil
 }

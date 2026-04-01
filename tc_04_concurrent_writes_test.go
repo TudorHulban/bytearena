@@ -3,7 +3,6 @@ package bytearena
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -12,30 +11,23 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // Test Case: Concurrent Writes During Rotation
 
 // Test: Multiple producers writing while consumer rotates arenas
 // Verifies: No writes are lost, no panics, all logs eventually appear
-func TestConcurrentWritesWithRotation(t *testing.T) {
-	var out bytes.Buffer
+func TestConcurrentWrites(t *testing.T) {
+	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &out)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
 
-	var wgConsumer sync.WaitGroup
-
-	// Start consumer with aggressive rotation
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup
 
@@ -51,7 +43,7 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 			defer wgProducers.Done()
 
 			for j := 0; j < writes/noProducers; j++ {
-				payload := fmt.Sprintf(
+				payload := helpers.SprintfInt(
 					"producer-%d-%d\n",
 					id,
 					j,
@@ -76,14 +68,19 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 	wgProducers.Wait()
 	cancel()
 
-	wgConsumer.Wait()
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
-	// Verify: All successful writes appear in output
-	output := out.String()
+	output := writer.String()
 	require.NotEmpty(t, output)
 
 	require.NotZero(t, successCount.Load())
 
+	t.Log(
+		ingestor.Registry.Snapshot(),
+	)
+
+	// Verify: All successful writes appear in output
 	outputNoLines := strings.Split(output, "\n")
 	require.EqualValues(t,
 		len(outputNoLines)-1,

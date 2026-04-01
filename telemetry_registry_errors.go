@@ -1,6 +1,10 @@
 package bytearena
 
-import "sync/atomic"
+import (
+	"context"
+	"errors"
+	"sync/atomic"
+)
 
 // Injected by the Consumer during the Flush cycle if LossRegistry > 0
 // {
@@ -44,21 +48,62 @@ func (r *ErrorsRegistry) LoadAndReset(et errorType) uint64 {
 	return r.Counts[et].value.Swap(0)
 }
 
+func (r *ErrorsRegistry) load(et errorType) uint64 {
+	if et <= 0 || et >= maxErrorTypes {
+		return 0
+	}
+
+	return r.Counts[et].value.Load()
+}
+
+func (r *ErrorsRegistry) loadError(value error) {
+	if value == nil {
+		return
+	}
+
+	if errors.Is(value, context.DeadlineExceeded) {
+		r.Counts[TErrDeadlineExceeded].value.Add(1)
+
+		return
+	}
+
+	switch value {
+	case ErrWriteNoActiveArena:
+		r.Counts[TErrWriteNoActiveArena].value.Add(1)
+
+	case ErrWriteActiveArenaMismatch:
+		r.Counts[TErrWriteActiveArenaMismatch].value.Add(1)
+
+	case ErrWriteArenaFull:
+		r.Counts[TErrWriteArenaFull].value.Add(1)
+
+	case ErrWriteMessageTooLarge:
+		r.Counts[TErrWriteMessageTooLarge].value.Add(1)
+
+	case ErrWriteShuttingDown:
+		r.Counts[TErrWriteShuttingDown].value.Add(1)
+
+	case ErrWriteBackpressure:
+		r.Counts[TErrWriteBackpressure].value.Add(1)
+
+	default:
+		r.Counts[TErrUnknown].value.Add(1)
+	}
+}
+
 // Snapshot collects all non-zero error counts, resets them to zero,
 // and returns them as a map for external reporting.
 func (r *ErrorsRegistry) Snapshot() map[string]uint64 {
-	stats := make(map[string]uint64)
+	result := make(map[string]uint64)
 
 	for ix := range maxErrorTypes {
-		et := ix
-
 		// Atomic Swap ensures counts between the read and reset are not lost.
-		count := r.Counts[et].value.Swap(0)
+		count := r.Counts[ix].value.Swap(0)
 
 		if count > 0 {
-			stats[errorTypeNames[et]] = count
+			result[errorTypeNames[ix]] = count
 		}
 	}
 
-	return stats
+	return result
 }
