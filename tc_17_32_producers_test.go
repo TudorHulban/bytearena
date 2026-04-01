@@ -17,9 +17,9 @@ import (
 // This test verifies the ingestor's performance and correctness under high concurrency
 // with multiple producers writing simultaneously while the consumer rotates arenas.
 
-// TestConcurrent32Producers tests the ingestor with 32 concurrent producers
+// Test_1_Concurrent32Producers tests the ingestor with 32 concurrent producers
 // writing at full speed to ensure no data loss and proper synchronization.
-func TestConcurrent32Producers(t *testing.T) {
+func Test_1_Concurrent32Producers(t *testing.T) {
 	var out bytes.Buffer
 
 	ingestor, err := NewIngestor(Size1M(), &out)
@@ -97,9 +97,9 @@ func TestConcurrent32Producers(t *testing.T) {
 	)
 }
 
-// TestHighContentionConcurrentWrites tests the ingestor with 64+ producers
+// Test_2_HighContentionConcurrentWrites tests the ingestor with 64+ producers
 // and aggressive rotation to stress the lock-free mechanisms.
-func TestHighContentionConcurrentWrites(t *testing.T) {
+func Test_2_HighContentionConcurrentWrites(t *testing.T) {
 	var out bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(Size100K(), &out, WithSealPercentage(50))
@@ -216,12 +216,12 @@ func BenchmarkConcurrentProducers(b *testing.B) {
 	}
 }
 
-// TestConcurrentProducersWithVariablePayload tests the ingestor with
+// Test_3_ConcurrentProducersWithVariablePayload tests the ingestor with
 // different payload sizes under high concurrency.
-func TestConcurrentProducersWithVariablePayload(t *testing.T) {
-	var out bytes.Buffer
+func Test_3_ConcurrentProducersWithVariablePayload(t *testing.T) {
+	var writer bytes.Buffer
 
-	ingestor, errCr := NewIngestor(Size1M(), &out)
+	ingestor, errCr := NewIngestor(Size1M(), &writer)
 	require.NoError(t, errCr)
 	require.NotNil(t, ingestor)
 
@@ -290,9 +290,9 @@ func TestConcurrentProducersWithVariablePayload(t *testing.T) {
 	)
 }
 
-// TestProducerConsumerThroughput tests the throughput under sustained load
+// Test_4_ProducerConsumerThroughput tests the throughput under sustained load
 // with 32 producers and continuous rotation.
-func TestProducerConsumerThroughput(t *testing.T) {
+func Test_4_ProducerConsumerThroughput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping throughput test in short mode")
 	}

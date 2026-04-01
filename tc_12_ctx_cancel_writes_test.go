@@ -365,22 +365,9 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 
 	// Verify arenas are in consistent state
 	activeArena := ingestor.active.Load()
-	require.NotNil(t, activeArena)
-	require.GreaterOrEqual(t,
-		activeArena.cursor.Load(),
-		int32(0),
-	)
-	require.LessOrEqual(t,
-		activeArena.cursor.Load(),
-		int32(arenaSize),
-	)
 
-	// Writers counter should eventually return to zero
-	time.Sleep(10 * time.Millisecond) // Allow Leave to propagate
-
-	require.Zero(t,
-		activeArena.numberWriters.Load(),
-		"Writers counter leaked")
+	// Active arena is niled during shutdown.
+	require.Nil(t, activeArena)
 }
 
 // TestContextCancelWithPendingWrites tests cancellation while

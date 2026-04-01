@@ -122,6 +122,16 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errWrite == ErrWriteArenaFull { //nolint:errorlint
 		staleArena := m.active.Load()
+
+		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
+		// If we see nil here (or isStopped is already set), bail out immediately.
+		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
+		if staleArena == nil || m.isStopped.Load() {
+			m.Registry.Inc(TErrWriteShuttingDown)
+
+			return ErrWriteShuttingDown
+		}
+
 		staleEpoch := staleArena.epoch.Load()
 
 		// Spin until the consumer has swapped in a fresh arena.
