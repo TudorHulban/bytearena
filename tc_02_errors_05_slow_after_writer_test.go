@@ -12,17 +12,18 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// Test Case: Backpressure policy
+// Test Case: Backpressure policy - Slow after Writer
 
-// Test: Writer stops indefinitely after n writes.
-// Verifies logger enters full mode
-// with silently drop (common for high-perf logging).
+// Test: Writer slows down but flush continues
+// as the slowdown does not trigger the context deadline..
 // No error reported to the producers.
 
-func TestConcurrentWrites_BlockingWriter(t *testing.T) {
-	legitWrites := 10
-
-	writer := helpers.NewBlockingWriter(legitWrites)
+func TestConcurrentWrites_SlowAfterWriter(t *testing.T) {
+	writer := helpers.NewSlowAfterWriter(
+		5,
+		3,
+		5,
+	)
 
 	ingestor, errCrIngestor := NewIngestor(1024, writer)
 	require.NoError(t, errCrIngestor)

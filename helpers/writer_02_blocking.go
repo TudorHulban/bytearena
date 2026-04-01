@@ -39,12 +39,12 @@ type BlockingWriter struct {
 
 var _ io.Writer = &BlockingWriter{}
 
-func NewBlockingWriter(maxWrites int) *BlockingWriter {
+func NewBlockingWriter(maxWrites uint64) *BlockingWriter {
 	result := BlockingWriter{
 		maxWrites: atomic.Uint64{},
 	}
 
-	result.maxWrites.Add(uint64(maxWrites))
+	result.maxWrites.Add(maxWrites)
 
 	return &result
 }
