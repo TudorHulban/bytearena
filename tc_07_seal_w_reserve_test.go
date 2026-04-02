@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +54,7 @@ func TestReserveVsSealRace(t *testing.T) {
 	close(chReady)
 
 	// Wait for result
-	require.True(t, <-chDone)
+	assert.True(t, <-chDone)
 
 	// Verify invariant: No writes to sealed arena
 	sealed := ingestor.sealed.Load()

@@ -13,11 +13,15 @@ import (
 func Test_01_Ingestor_SingleWrite(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(1024, &writer)
+	ingestor, errCrIngestor := NewIngestor(
+		Size100K(),
+		&writer,
+		WithUnblockFlushMiliseconds(100),
+	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
@@ -32,6 +36,8 @@ func Test_01_Ingestor_SingleWrite(t *testing.T) {
 			},
 		),
 	)
+
+	time.Sleep(10 * time.Millisecond)
 
 	cancel()
 

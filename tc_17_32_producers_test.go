@@ -22,7 +22,7 @@ import (
 func Test_1_Concurrent32Producers(t *testing.T) {
 	var out bytes.Buffer
 
-	ingestor, err := NewIngestor(Size1M(), &out)
+	ingestor, err := NewIngestor(Size8M(), &out)
 	require.NoError(t, err)
 	require.NotNil(t, ingestor)
 
@@ -102,7 +102,7 @@ func Test_1_Concurrent32Producers(t *testing.T) {
 func Test_2_HighContentionConcurrentWrites(t *testing.T) {
 	var out bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(Size100K(), &out, WithSealPercentage(50))
+	ingestor, errCrIngestor := NewIngestor(Size16M(), &out, WithSealPercentage(50))
 	require.NoError(t, errCrIngestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -162,11 +162,14 @@ func Test_2_HighContentionConcurrentWrites(t *testing.T) {
 	require.Greater(t, successCount.Load(), int64(0))
 }
 
-// cpu: AMD Ryzen 5 5600U with Radeon Graphics
-// BenchmarkConcurrentProducers/producers_4-12         	20196822	        55.89 ns/op	    576037 writes/sec	       0 B/op	       0 allocs/op
-// BenchmarkConcurrentProducers/producers_8-12         	20184724	        55.40 ns/op	    294138 writes/sec	       0 B/op	       0 allocs/op
-// BenchmarkConcurrentProducers/producers_16-12        	20289602	        55.38 ns/op	    286989 writes/sec	       0 B/op	       0 allocs/op
-// BenchmarkConcurrentProducers/producers_32-12        	20462853	        55.11 ns/op	    157237 writes/sec	       0 B/op	       0 allocs/op
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkConcurrentProducers/producers_4-16             11865310               105.7 ns/op         9451472 writes/sec         25 B/op          0 allocs/op
+// BenchmarkConcurrentProducers/producers_8-16             12573945               105.5 ns/op         9460136 writes/sec         25 B/op          0 allocs/op
+// BenchmarkConcurrentProducers/producers_16-16            11910895               107.5 ns/op         9272497 writes/sec         25 B/op          0 allocs/op
+// BenchmarkConcurrentProducers/producers_32-16            11895201               110.4 ns/op         8997479 writes/sec         25 B/op          0 allocs/op
+
+// go test -run '^$' -bench '^BenchmarkConcurrentProducers$' -benchmem
+// go test -run '^$' -bench '^BenchmarkConcurrentProducers$' -benchmem -race
 
 // BenchmarkConcurrentProducers benchmarks the ingestor with increasing numbers of
 // concurrent producers to measure scaling characteristics.
@@ -179,8 +182,24 @@ func BenchmarkConcurrentProducers(b *testing.B) {
 			func(b *testing.B) {
 				writer := &helpers.NoopWriter{}
 
-				ingestor, errCrIngestor := NewIngestor(Size1M(), writer)
-				require.NoError(b, errCrIngestor)
+				ingestor, errCrIngestor := NewIngestor(
+					Size1M(),
+					writer,
+					WithUnblockFlushMiliseconds(90),
+				)
+				if errCrIngestor != nil {
+					b.Fatalf(
+						"errCrIngestor = %s",
+						errCrIngestor.Error(),
+					)
+				}
+
+				if ingestor == nil {
+					b.Fatal(
+						"nil ingestor created",
+					)
+				}
+
 				require.NotNil(b, ingestor)
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -221,7 +240,7 @@ func BenchmarkConcurrentProducers(b *testing.B) {
 func Test_3_ConcurrentProducersWithVariablePayload(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, errCr := NewIngestor(Size1M(), &writer)
+	ingestor, errCr := NewIngestor(Size8M(), &writer)
 	require.NoError(t, errCr)
 	require.NotNil(t, ingestor)
 
@@ -299,7 +318,12 @@ func Test_4_ProducerConsumerThroughput(t *testing.T) {
 
 	var out bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(Size500K(), &out, WithSealPercentage(70))
+	ingestor, errCrIngestor := NewIngestor(
+		Size16M(),
+		&out,
+		WithSealPercentage(97),
+		WithUnblockFlushMiliseconds(190),
+	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
