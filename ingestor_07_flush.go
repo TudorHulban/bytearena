@@ -33,20 +33,11 @@ func (m *Ingestor) flushArena(a *arena) {
 		used = int32(m.arenaSize) //nolint:gosec
 	}
 
-	isolationSnapshot := make([]byte, used)
-	copy(isolationSnapshot, a.buf[:used])
+	isolatedBuffer := make([]byte, used)
+	copy(isolatedBuffer, a.buf[:used])
 
-	// ctx, cancel := context.WithTimeout(
-	// 	context.Background(),
-	// 	time.Duration(m.milisecondsUnblockFlush)*time.Millisecond,
-	// )
-	// defer cancel()
-
-	buf := isolationSnapshot
-
-	for len(buf) > 0 {
-		bytesWritten, errWrite := m.writer.Write(buf)
-		// bytesWritten, errWrite := helpers.WriteWithContext(ctx, m.writer, buf)
+	for len(isolatedBuffer) > 0 {
+		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
 
 		// Partial writes are allowed even when err != nil.
 		// We stop because the caller cannot recover meaningfully.
@@ -71,7 +62,7 @@ func (m *Ingestor) flushArena(a *arena) {
 			return
 		}
 
-		buf = buf[bytesWritten:]
+		isolatedBuffer = isolatedBuffer[bytesWritten:]
 	}
 }
 
