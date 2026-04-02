@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // Flush sealed arena contents using the provided writer function.
@@ -38,16 +36,17 @@ func (m *Ingestor) flushArena(a *arena) {
 	isolationSnapshot := make([]byte, used)
 	copy(isolationSnapshot, a.buf[:used])
 
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(m.milisecondsUnblockFlush)*time.Millisecond,
-	)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(
+	// 	context.Background(),
+	// 	time.Duration(m.milisecondsUnblockFlush)*time.Millisecond,
+	// )
+	// defer cancel()
 
 	buf := isolationSnapshot
 
 	for len(buf) > 0 {
-		bytesWritten, errWrite := helpers.WriteWithContext(ctx, m.writer, buf)
+		bytesWritten, errWrite := m.writer.Write(buf)
+		// bytesWritten, errWrite := helpers.WriteWithContext(ctx, m.writer, buf)
 
 		// Partial writes are allowed even when err != nil.
 		// We stop because the caller cannot recover meaningfully.

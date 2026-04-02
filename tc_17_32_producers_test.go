@@ -316,11 +316,11 @@ func Test_4_ProducerConsumerThroughput(t *testing.T) {
 		t.Skip("skipping throughput test in short mode")
 	}
 
-	var out bytes.Buffer
+	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(
 		Size16M(),
-		&out,
+		&writer,
 		WithSealPercentage(97),
 		WithUnblockFlushMiliseconds(190),
 	)

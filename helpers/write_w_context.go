@@ -38,6 +38,27 @@ func WriteWithContext(ctx context.Context, w io.Writer, payload []byte) (int, er
 	}
 }
 
+// Pipe-based cancellation mechanism:
+//
+// io.Pipe gives us a reader (pipeReader) and writer (pipeWriter) pair with a
+// critical property: closing either end *forces* the other end to unblock.
+// This makes the pipe a cancellation boundary that we control.
+//
+// Why this solves the runaway-goroutine problem:
+//
+// If dst.Write blocks forever, a goroutine doing io.Copy(dst, pipeReader)
+// would normally be stuck forever too. But when the context is cancelled,
+// we close pipeWriter with an error. Closing pipeWriter causes:
+//
+//   1. pipeWriter.Write(...) to return immediately in the writer goroutine
+//   2. pipeReader.Read(...) to return immediately in the forwarding goroutine
+//
+// Both goroutines exit deterministically, regardless of whether dst.Write
+// is cooperative or permanently blocked.
+//
+// This is the only portable way in Go to force-unblock a write path when the
+// underlying writer does not support deadlines or cancellation.
+
 // func WriteWithContext(ctx context.Context, w io.Writer, payload []byte) (int, error) {
 // 	// Pipe used as a cancellation boundary:
 // 	// - pw is where *we* write the payload
