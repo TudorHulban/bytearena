@@ -21,6 +21,7 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	require.NotNil(t, original)
 
 	var wgProducers sync.WaitGroup
+
 	stop := make(chan struct{})
 
 	// --- Producers hammer Enter/Leave ---
@@ -65,7 +66,7 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 				// ❌ This is the real violation
 				close(stop)
 				wgProducers.Wait()
-				t.Fatalf(
+				t.Fatal(
 					"unstable drain: observed 0 writers but new writer appeared",
 				)
 			}
@@ -96,7 +97,7 @@ func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 	initialEpoch := arena.epoch.Load()
 
 	// Step 2: force the arena to be rotated out and reused
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_ = ingestor.rotate()
 	}
 
@@ -126,7 +127,7 @@ func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 
 	// If we reach here without panic or detection,
 	// you potentially wrote into reused memory
-	t.Fatalf("write succeeded on reused arena (epoch mismatch not enforced)")
+	t.Fatal("write succeeded on reused arena (epoch mismatch not enforced)")
 }
 
 func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
@@ -148,6 +149,7 @@ func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
 
 		if a == arena && a.epoch.Load() != initialEpoch {
 			reused = true
+
 			break
 		}
 	}
@@ -164,5 +166,5 @@ func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
 		buf[i] = 0xCD
 	}
 
-	t.Fatalf("stale write succeeded after real reuse (epoch changed)")
+	t.Fatal("stale write succeeded after real reuse (epoch changed)")
 }

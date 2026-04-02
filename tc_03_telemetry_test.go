@@ -80,7 +80,7 @@ func Test_03_01_Ingestor_CheckRollback(t *testing.T) {
 		1,
 		e1,
 
-		"one rotation should have occured",
+		"one rotation should have occurred",
 	)
 
 	require.Contains(t,
