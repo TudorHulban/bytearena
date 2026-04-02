@@ -74,6 +74,15 @@ func Test_03_01_Ingestor_CheckRollback(t *testing.T) {
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
+	e1, _ := ingestor.GetArenaEpochs()
+
+	require.EqualValues(t,
+		1,
+		e1,
+
+		"one rotation should have occured",
+	)
+
 	require.Contains(t,
 		writer.Buf.String(),
 		string(payload1),

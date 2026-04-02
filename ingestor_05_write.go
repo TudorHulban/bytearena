@@ -15,8 +15,6 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 	// First attempt.
 	region, errWrite := m.beginWrite(n)
 	if errWrite == nil {
-		m.Registry.loadError(errWrite)
-
 		return region, nil
 	}
 
@@ -27,6 +25,8 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 
 		return WriteRegion{}, errWrite
 	}
+
+	m.Registry.loadError(errWrite)
 
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.

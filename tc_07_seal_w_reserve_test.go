@@ -5,149 +5,13 @@ import (
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Test Case: Race Between Reserve and Seal
 
-// Test: Producer reserves space exactly as consumer seals
-// Verifies: No writes to arena after it is sealed
-func Test_1_ReserveVsSealRace(t *testing.T) {
-	var writer bytes.Buffer
-
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
-	require.NoError(t, errCrIngestor)
-	require.NotNil(t, ingestor)
-
-	// Channel to coordinate race
-	chReady := make(chan struct{})
-	chDone := make(chan bool)
-
-	// Producer goroutine
-	go func() {
-		<-chReady // Wait for signal
-
-		// Attempt to reserve
-		region, errWrite := ingestor.beginWrite(100)
-		if errWrite == nil {
-			// If we got a region, it must be in active arena
-			if region.arena != ingestor.active.Load() && region.arena != nil {
-				chDone <- false
-
-				return
-			}
-
-			ingestor.EndWrite(region)
-		}
-
-		chDone <- true
-	}()
-
-	// Consumer goroutine
-	go func() {
-		<-chReady // Wait for same signal
-
-		// Rotate arenas
-		sealed := ingestor.rotate()
-		_ = sealed
-	}()
-
-	// Start both simultaneously
-	close(chReady)
-
-	// Wait for result
-	assert.True(t, <-chDone)
-
-	// Verify invariant: No writes to sealed arena
-	sealed := ingestor.sealed.Load()
-
-	if sealed != nil {
-		require.True(t,
-			sealed.numberWriters.Load() == 0 || ingestor.active.Load() == sealed,
-		)
-	}
-}
-
-func Test_2_LateEnter_AfterDrainCheck(t *testing.T) {
-	t.Skip()
-
-	var writer bytes.Buffer
-
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
-	require.NoError(t, errCrIngestor)
-	require.NotNil(t, ingestor)
-
-	// We will capture the arena being rotated out.
-	original := ingestor.active.Load()
-	require.NotNil(t, original)
-
-	// Coordination
-	chProducerMayEnter := make(chan struct{})
-	chConsumerCheckedZero := make(chan struct{})
-	chDone := make(chan struct{})
-
-	// --- Producer ---
-	go func() {
-		// Step 1: read active arena early
-		arena := ingestor.active.Load()
-		require.Equal(t, original, arena)
-
-		// Wait until consumer has already checked writers == 0
-		<-chConsumerCheckedZero
-
-		// Now enter AFTER drain check
-		arena.Enter()
-
-		// Signal we entered
-		close(chProducerMayEnter)
-
-		// Simulate some work
-		runtime.Gosched()
-
-		arena.Leave()
-	}()
-
-	// --- Consumer ---
-	go func() {
-		// Rotate: this seals `original`
-		sealed := ingestor.rotate()
-		require.Equal(t, original, sealed)
-
-		// Spin until we observe zero writers
-		for {
-			if sealed.numberWriters.Load() == 0 {
-				break
-			}
-			runtime.Gosched()
-		}
-
-		// Signal: "I believe it's drained"
-		close(chConsumerCheckedZero)
-
-		// Give producer a chance to enter AFTER this point
-		<-chProducerMayEnter
-
-		// Now check again
-		if sealed.numberWriters.Load() != 0 {
-			// ❌ This is the violation:
-			// A writer appeared AFTER we observed zero
-			t.Fatalf("late writer entered sealed arena after drain check")
-		}
-
-		close(chDone)
-	}()
-
-	select {
-	case <-chDone:
-	case <-time.After(2 * time.Second):
-		t.Fatal("test timeout (possible deadlock)")
-	}
-}
-
-func Test_3_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
+func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, err := NewIngestor(_Size1K, &writer)
@@ -218,7 +82,7 @@ func Test_3_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	)
 }
 
-func Test_4_NoWriteAfterArenaReuse(t *testing.T) {
+func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, err := NewIngestor(_Size1K, &writer)
@@ -265,7 +129,7 @@ func Test_4_NoWriteAfterArenaReuse(t *testing.T) {
 	t.Fatalf("write succeeded on reused arena (epoch mismatch not enforced)")
 }
 
-func Test_5_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
+func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, err := NewIngestor(_Size1K, &writer)

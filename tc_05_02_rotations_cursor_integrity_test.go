@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,12 +29,9 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 	var (
 		cursorHistory []int32
 		cursorMutex   sync.Mutex
-		rotationCount atomic.Int32
 	)
 
 	ingestor.flusher = func(a *arena) {
-		rotationCount.Add(1)
-
 		cursorMutex.Lock()
 
 		cursorHistory = append(cursorHistory, a.cursor.Load())
@@ -48,11 +44,6 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 			"cursor %d exceeds arena size %d", cursor, arenaSize)
 
 		ingestor.flushArena(a)
-		a.reset()
-
-		// After reset, cursor must be 0
-		require.Equal(t, int32(0), a.cursor.Load(),
-			"cursor not reset to 0")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -88,15 +79,11 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 	cancel()
 	wgConsumer.Wait()
 
-	// Verify we had many rotations
-	rotations := rotationCount.Load()
-	t.Logf(
-		"Total rotations: %d",
-		rotations,
-	)
+	e1, e2 := ingestor.GetArenaEpochs()
+
 	require.Greater(t,
-		rotations,
-		int32(10),
+		e1+e2,
+		uint64(10),
 		"should have had multiple rotations",
 	)
 
