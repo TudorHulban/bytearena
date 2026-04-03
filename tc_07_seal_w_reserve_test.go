@@ -14,15 +14,16 @@ import (
 func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, err := NewIngestor(_Size1K, &writer)
-	require.NoError(t, err)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
 
 	original := ingestor.active.Load()
 	require.NotNil(t, original)
 
 	var wgProducers sync.WaitGroup
 
-	stop := make(chan struct{})
+	chStop := make(chan struct{})
 
 	// --- Producers hammer Enter/Leave ---
 	for range 8 {
@@ -30,7 +31,7 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 			func() {
 				for {
 					select {
-					case <-stop:
+					case <-chStop:
 						return
 					default:
 					}
@@ -64,7 +65,8 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 
 			if sealed.numberWriters.Load() != 0 {
 				// ❌ This is the real violation
-				close(stop)
+				close(chStop)
+
 				wgProducers.Wait()
 				t.Fatal(
 					"unstable drain: observed 0 writers but new writer appeared",
@@ -73,10 +75,10 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 		}
 	}
 
-	close(stop)
+	close(chStop)
 	wgProducers.Wait()
 
-	// If we never even saw zero, that's also interesting
+	// If we never even saw zero, that is also interesting.
 	require.True(t,
 		observedZero,
 		"never observed zero writers; test inconclusive",
@@ -86,12 +88,14 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, err := NewIngestor(_Size1K, &writer)
-	require.NoError(t, err)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
 
 	// Step 1: reserve a region but DO NOT write yet
-	region, err := ingestor.beginWrite(64)
-	require.NoError(t, err)
+	region, errWrite := ingestor.beginWrite(64)
+	require.NoError(t, errWrite)
+	require.NotZero(t, region)
 
 	arena := region.arena
 	initialEpoch := arena.epoch.Load()

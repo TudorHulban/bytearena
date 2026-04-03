@@ -81,7 +81,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 		failedWrites     atomic.Int64
 	)
 
-	// Channel to signal all producers are chDone
+	// Channel to signal all producers are done.
 	chDone := make(chan struct{})
 
 	// Start producers

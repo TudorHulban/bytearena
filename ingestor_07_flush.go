@@ -33,7 +33,7 @@ func (m *Ingestor) flushArena(a *arena) {
 		used = int32(m.arenaSize) //nolint:gosec
 	}
 
-	isolatedBuffer := make([]byte, used)
+	isolatedBuffer := make([]byte, used) // no aliasing with arena memory
 	copy(isolatedBuffer, a.buf[:used])
 
 	for len(isolatedBuffer) > 0 {

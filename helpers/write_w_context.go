@@ -1,43 +1,5 @@
 package helpers
 
-import (
-	"context"
-	"io"
-)
-
-// WARNING: potential runaway goroutine.
-//
-// If w.Write(payload) blocks forever, the goroutine never returns and is never
-// canceled. The context only aborts the caller's select path, not the goroutine,
-// so it leaks permanently. Writers that do not respect deadlines or cancellation
-// will accumulate stuck goroutines under load.
-func WriteWithContext(ctx context.Context, w io.Writer, payload []byte) (int, error) {
-	type result struct {
-		errWrite     error
-		bytesWritten int
-	}
-
-	chDone := make(chan result, 1)
-
-	go func() {
-		bytesWritten, err := w.Write(payload)
-
-		chDone <- result{
-			bytesWritten: bytesWritten,
-			errWrite:     err,
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return 0,
-			ctx.Err()
-
-	case results := <-chDone:
-		return results.bytesWritten, results.errWrite
-	}
-}
-
 // Pipe-based cancellation mechanism:
 //
 // io.Pipe gives us a reader (pipeReader) and writer (pipeWriter) pair with a

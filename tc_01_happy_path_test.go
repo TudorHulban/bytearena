@@ -22,7 +22,6 @@ func Test_01_Ingestor_SingleWrite(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := "hi!"
@@ -121,6 +120,8 @@ func Test_01_Ingestor_ioWriter_Parallel(t *testing.T) {
 	)
 
 	cancel()
+
+	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
 	require.True(t,

@@ -39,3 +39,29 @@ func MakePayloadNumbered(length, number int, char byte) []byte {
 
 	return result
 }
+
+func MakePayloadWLineFeed(length, number int, char byte) []byte {
+	result := make([]byte, length)
+
+	num := strconv.AppendInt(nil, int64(number), 10)
+	n := len(num)
+
+	// Reserve 1 byte for '\n'
+	if n+1 > length {
+		// Truncate number so that last byte is '\n'
+		copy(result, num[:length-1])
+		result[length-1] = '\n'
+
+		return result
+	}
+
+	copy(result, num)
+
+	for i := n; i < length-1; i++ {
+		result[i] = char
+	}
+
+	result[length-1] = '\n'
+
+	return result
+}

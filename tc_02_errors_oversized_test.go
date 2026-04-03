@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_02_02_Ingestor_OversizeWrite(t *testing.T) {
+func Test_02_Ingestor_OversizeWrite(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(

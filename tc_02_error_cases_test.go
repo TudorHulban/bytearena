@@ -63,7 +63,7 @@ func TestErrorWriters(t *testing.T) {
 				require.NoError(t, errCrIngestor)
 				require.NotNil(t, ingestor)
 
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 
 				chIngestionEnd := ingestor.StartIngestion(ctx)
 

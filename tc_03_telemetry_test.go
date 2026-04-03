@@ -11,13 +11,13 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// Test case: Telemetry Rollback
+// Test case: Telemetry Rollback Attribute
 
 // Test: Verifies telemetry rollback is incremented at least once.
 // Note: the consumer is async and there is no
 // synchronization point between producer retry and consumer rotation.
 
-func Test_03_01_Ingestor_CheckRollback(t *testing.T) {
+func Test_03_Ingestor_CheckRollback(t *testing.T) {
 	var writer helpers.CountWriterWithBuffer
 
 	ingestor, errCrIngestor := NewIngestor(
