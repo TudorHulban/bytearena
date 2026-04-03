@@ -1,9 +1,7 @@
 name: Cleanup Orphaned CI Runs
 
 on:
-  schedule:
-    - cron: '0 0 */5 * *'
-  workflow_dispatch:
+  workflow_dispatch: # manual trigger only
 
 jobs:
   cleanup-orphan-runs:
