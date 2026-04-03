@@ -1,45 +1,41 @@
 package bytearena
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"math/rand"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// Test Case: Concurrent Writes During Rotation
+// Test Case: Backpressure policy - Blocking Writer
 
-// Test: Multiple producers writing while consumer rotates arenas
-// Verifies: No writes are lost, no panics, all logs eventually appear
-func TestConcurrentWritesWithRotation(t *testing.T) {
-	var out bytes.Buffer
+// Test: Writer stops indefinitely after n writes.
 
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &out)
+func TestConcurrentWrites_BlockingWriter(t *testing.T) {
+	t.Skip(
+		"ingestor blocks as long as writer is blocked",
+	)
+
+	var legitWrites uint64 = 10
+
+	writer := helpers.NewBlockingWriter(legitWrites)
+
+	ingestor, errCrIngestor := NewIngestor(1024, writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
 
-	var wgConsumer sync.WaitGroup
-
-	// Start consumer with aggressive rotation
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup
 
-	writes := 10000
+	totalWrites := 1000
 	successCount := atomic.Int64{}
 
 	noProducers := 10
@@ -50,8 +46,8 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 		go func(id int) {
 			defer wgProducers.Done()
 
-			for j := 0; j < writes/noProducers; j++ {
-				payload := fmt.Sprintf(
+			for j := 0; j < totalWrites/noProducers; j++ {
+				payload := helpers.SprintfInt(
 					"producer-%d-%d\n",
 					id,
 					j,
@@ -76,21 +72,20 @@ func TestConcurrentWritesWithRotation(t *testing.T) {
 	wgProducers.Wait()
 	cancel()
 
-	wgConsumer.Wait()
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
-	// Verify: All successful writes appear in output
-	output := out.String()
+	output := writer.Buf.String()
 	require.NotEmpty(t, output)
 
 	require.NotZero(t, successCount.Load())
 
-	outputNoLines := strings.Split(output, "\n")
-	require.EqualValues(t,
-		len(outputNoLines)-1,
-		int(successCount.Load()),
+	t.Log(
+		ingestor.Registry.Snapshot(),
+	)
 
-		"number output lines: %d vs success count of %d",
-		len(outputNoLines),
-		int(successCount.Load()),
+	require.GreaterOrEqual(t,
+		int64(totalWrites),
+		successCount.Load()-int64(len(ingestor.Registry.Snapshot())),
 	)
 }

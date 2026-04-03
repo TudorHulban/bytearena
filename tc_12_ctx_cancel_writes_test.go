@@ -65,7 +65,6 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 		}
 
 		ingestor.flushArena(a)
-		a.reset()
 
 		// When we hit target rotations, trigger shutdown
 		if rotations >= targetRotations && !shutdownStarted.Load() {
@@ -124,11 +123,13 @@ func TestContextCancel_DuringHeavyWrite(t *testing.T) {
 
 				// Random payload size between 10-80 bytes to create pressure
 				size := 10 + r.Intn(70)
+
 				payload := fmt.Sprintf(
 					"p%d-%d-%s\n",
 					producerID,
 					writeCount,
-					randomString(size-9)) // Adjust for prefix
+					randomString(size-9), // Adjust for prefix
+				)
 
 				writesAttempted.Add(1)
 
@@ -364,22 +365,9 @@ func TestContextCancel_DuringRotation(t *testing.T) {
 
 	// Verify arenas are in consistent state
 	activeArena := ingestor.active.Load()
-	require.NotNil(t, activeArena)
-	require.GreaterOrEqual(t,
-		activeArena.cursor.Load(),
-		int32(0),
-	)
-	require.LessOrEqual(t,
-		activeArena.cursor.Load(),
-		int32(arenaSize),
-	)
 
-	// Writers counter should eventually return to zero
-	time.Sleep(10 * time.Millisecond) // Allow Leave to propagate
-
-	require.Zero(t,
-		activeArena.numberWriters.Load(),
-		"Writers counter leaked")
+	// Active arena is niled during shutdown.
+	require.Nil(t, activeArena)
 }
 
 // TestContextCancelWithPendingWrites tests cancellation while

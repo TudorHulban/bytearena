@@ -1,7 +1,10 @@
 package helpers
 
 import (
+	"bytes"
+	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,32 +22,42 @@ import (
 //
 // - Use deadlines or context if latency matters.
 type SlowAfterWriter struct {
-	mu sync.Mutex
+	Buf bytes.Buffer
 
 	sleepDuration time.Duration
 
-	fastWrites    int
-	slowWrites    int
-	currentWrites int
+	fastWrites    atomic.Uint64
+	slowWrites    atomic.Uint64
+	currentWrites atomic.Uint64
+
+	mu sync.Mutex
 }
 
-func NewSlowAfterWriter(fastWrites, slowWrites int, sleep time.Duration) *SlowAfterWriter {
-	return &SlowAfterWriter{
-		fastWrites:    fastWrites,
-		slowWrites:    slowWrites,
-		sleepDuration: sleep,
+var _ io.Writer = &SlowAfterWriter{}
+
+func NewSlowAfterWriter(fastWrites, slowWrites uint64, sleepMiliseconds uint16) *SlowAfterWriter {
+	result := SlowAfterWriter{
+		fastWrites: atomic.Uint64{},
+		slowWrites: atomic.Uint64{},
+
+		sleepDuration: time.Millisecond + time.Duration(sleepMiliseconds),
 	}
+
+	result.fastWrites.Add(fastWrites)
+	result.slowWrites.Add(slowWrites)
+
+	return &result
 }
 
-func (w *SlowAfterWriter) Write(p []byte) (int, error) {
+func (w *SlowAfterWriter) Write(payload []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.currentWrites >= w.fastWrites && w.currentWrites < w.fastWrites+w.slowWrites {
+	if w.currentWrites.Load() >= w.fastWrites.Load() && w.currentWrites.Load() < w.fastWrites.Load()+w.slowWrites.Load() {
 		time.Sleep(w.sleepDuration)
 	}
 
-	w.currentWrites++
+	w.currentWrites.Add(1)
 
-	return len(p), nil
+	return w.Buf.Write(payload)
 }

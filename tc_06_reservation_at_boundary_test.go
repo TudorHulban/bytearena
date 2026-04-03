@@ -33,7 +33,10 @@ func TestReservationAtBoundary(t *testing.T) {
 
 	// Producer 2: Reserve 1 byte (should fail - overflow)
 	regionZero, errReserveMore := ingestor.beginWrite(1)
-	require.Error(t, errReserveMore)
+	require.ErrorIs(t,
+		errReserveMore,
+		ErrWriteArenaFull,
+	)
 	require.Zero(t, regionZero)
 	require.EqualValues(t,
 		1,
@@ -48,4 +51,8 @@ func TestReservationAtBoundary(t *testing.T) {
 		100,
 		arena.cursor.Load(),
 	)
+
+	e1, e2 := ingestor.GetArenaEpochs()
+	require.Zero(t, e1)
+	require.Zero(t, e2)
 }

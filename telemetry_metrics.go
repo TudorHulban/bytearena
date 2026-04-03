@@ -6,12 +6,12 @@ import (
 
 type Metrics struct {
 	NumberRollbacks atomic.Uint64
+
+	// below are picked directly
+	// arena first epoch
+	// arena second epoch
 }
 
-func (m *Metrics) IncrementRollback() {
-	m.NumberRollbacks.Add(1)
-}
-
-func (m *Metrics) Reset() {
-	m.NumberRollbacks.Store(0)
+func (m *Metrics) IncrementRollback(with uint64) {
+	m.NumberRollbacks.Add(with)
 }

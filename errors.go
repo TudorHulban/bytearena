@@ -20,6 +20,7 @@ const (
 	TErrWriteMessageTooLarge               // Consumer too slow
 	TErrWriteShuttingDown                  // Catch-all
 	TErrWriteBackpressure
+	TErrDeadlineExceeded
 	TErrUnknown
 
 	maxErrorTypes // Helper for array size
@@ -32,5 +33,6 @@ var errorTypeNames = [maxErrorTypes]string{
 	TErrWriteMessageTooLarge:     "message_too_large",
 	TErrWriteShuttingDown:        "shutting_down",
 	TErrWriteBackpressure:        "backpressure",
+	TErrDeadlineExceeded:         "deadline_exceeded",
 	TErrUnknown:                  "unknown",
 }

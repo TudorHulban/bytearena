@@ -12,6 +12,8 @@ import (
 // Methods are defined elsewhere; this file only defines the data layout.
 type arena struct { //nolint:govet
 	// Hot atomics (each on its own cache line).
+	epoch atomic.Uint64
+	_     [56]byte // pad to 64 bytes
 
 	// cursor is the current write position (in bytes) inside buf.
 	// Producers use atomic fetch-add on this to reserve regions.
@@ -31,6 +33,8 @@ type arena struct { //nolint:govet
 	// buf is the underlying byte storage for this arena.
 	// Its capacity defines the arena size.
 	buf []byte
+
+	telemetryObservableRollback func(add uint64)
 }
 
 // Enter increments the writers-in-flight counter.
@@ -62,5 +66,16 @@ func (a *arena) reset() {
 	// still holding Enter(), corrupting the count to -1 and hanging
 	// the next waitForWriters call permanently.
 
+	if a.telemetryObservableRollback != nil {
+		a.telemetryObservableRollback(
+			uint64(a.rollbackCounter.Swap(0)), //nolint:gosec
+		)
+
+		a.epoch.Add(1)
+
+		return
+	}
+
 	a.rollbackCounter.Store(0)
+	a.epoch.Add(1)
 }

@@ -7,25 +7,38 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// All benchmarks were done on Rocky 10.
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16    	87104852	        13.50 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkArena_ConstantPayload(b *testing.B) {
-	writer := helpers.CountWriter{}
+const (
+	_Pause1Nanoseconds = 17
+)
 
-	ingestor, errCrIngestor := NewIngestor(1024*1024, &writer)
+// All benchmarks were done on Rocky 10.
+
+// go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem
+// go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkArena_ConstantPayload-16       74729078                15.60 ns/op           49 B/op          0 allocs/op
+func BenchmarkArena_ConstantPayload(b *testing.B) {
+	writer := helpers.CountWriterNoBuffer{}
+
+	ingestor, errCrIngestor := NewIngestor(Size500K(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := []byte(`{"level":"info","msg":"user login","user_id":123}`)
 
 	b.ReportAllocs()
-	b.ResetTimer()
+
+	start := time.Now()
 
 	for b.Loop() {
 		ingestor.write(
@@ -37,32 +50,66 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 		)
 	}
 
-	_ = writer.TotalBytesWritten.Load()
+	stableTS, stabilisationOccured := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[uint64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() uint64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+
+			NumberStableSamples:  2,
+			MaximumNumberSamples: 100,
+		},
+	)
+
+	var elapsed time.Duration
+
+	if stabilisationOccured {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	cancel()
+	<-chIngestionEnd
 }
 
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_FormattedPayload-12    	43534532	        28.83 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkArena_FormattedPayload(b *testing.B) {
-	writer := helpers.CountWriter{}
+// go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem
+// go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem -race
 
-	ingestor, errCrIngestor := NewIngestor(1024, &writer)
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkArena_FormattedPayload-16      44801493                29.78 ns/op           54 B/op          0 allocs/op
+func BenchmarkArena_FormattedPayload(b *testing.B) {
+	writer := helpers.CountWriterNoBuffer{}
+
+	ingestor, errCrIngestor := NewIngestor(Size500K(), &writer)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
-	b.ReportAllocs()
-	b.ResetTimer()
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	// [ADD] Reusable buffer for zero-alloc JSON construction
 	buf := make([]byte, 0, 64)
 
+	b.ReportAllocs()
+
+	start := time.Now()
+
 	for ix := 0; b.Loop(); ix++ {
-		// [EDIT] Zero-alloc JSON construction
 		buf = buf[:0]
 		buf = append(buf, `{"level":"info","msg":"user login","user_id":`...)
 		buf = strconv.AppendInt(buf, int64(ix), 10)
 		buf = append(buf, '}')
 
-		// [EDIT] Write bytes directly, no string conversion
 		ingestor.write(
 			uint32(len(buf)),
 
@@ -72,51 +119,241 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 		)
 	}
 
-	_ = writer.TotalBytesWritten.Load() // keep sink live
+	stableTS, stabilisationOccured := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[uint64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() uint64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+
+			NumberStableSamples:  2,
+			MaximumNumberSamples: 100,
+		},
+	)
+
+	var elapsed time.Duration
+
+	if stabilisationOccured {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	cancel()
+	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_Write$' -benchmem -race
-// BenchmarkIngestor_Write-16    	99849817	        12.45 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_Write(b *testing.B) {
-	writer := helpers.CountWriter{}
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
+// BenchmarkIngestor_ioWriter_End2End-16    	61535053	        20.61 ns/op	        12.42 Gb/s	      69 B/op	       0 allocs/op
+func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
+	writer := helpers.CountWriterWithBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
-	require.NoError(b, errCrIngestor)
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
 	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	var written atomic.Int64
+	start := time.Now()
 
 	for b.Loop() {
-		if _, errWrite := ingestor.Write(payload); errWrite == nil {
-			written.Add(1)
-		}
+		_, _ = ingestor.Write(payload)
 	}
+
+	stableTS, ok := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[int64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() int64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond, // or the measured Pause(30) duration
+
+			NumberStableSamples:  2,   // require 2 identical samples
+			MaximumNumberSamples: 100, // safety cap
+		},
+	)
+
+	var elapsed time.Duration
+
+	if ok {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	bytesWritten := float64(writer.TotalBytesWritten.Load())
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (bytesWritten * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s") // Gb/s throughput
 
 	cancel()
 	<-chIngestionEnd
-
-	b.Log(written.Load())
-
-	require.EqualValues(b,
-		writer.TotalBytesWritten.Load(),
-		written.Load()*int64(len(payload)),
-	)
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_WriteParallel$' -benchmem -race
-// BenchmarkIngestor_WriteParallel-12    	21925039	        54.43 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_WriteParallel(b *testing.B) {
-	writer := helpers.CountWriter{}
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem
+
+// BenchmarkIngestor_ioWriter_Parallel-16          12078427               104.8 ns/op               2.432 Gb/s           32 B/op          0 allocs/op
+func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
+	writer := helpers.CountWriterNoBuffer{}
+
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
+	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	b.ReportAllocs()
+	b.SetParallelism(16)
+
+	start := time.Now()
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			for pb.Next() {
+				_, _ = ingestor.Write(payload)
+			}
+		},
+	)
+
+	stableTS, ok := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[uint64]{
+			InitialValue: writer.TotalBytesWritten.Load(),
+
+			GetCurrentValue: func() uint64 {
+				return writer.TotalBytesWritten.Load()
+			},
+
+			PauseFn:         func() { helpers.Pause(1) },
+			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond, // or the measured Pause(30) duration
+
+			NumberStableSamples:  2,   // require 2 identical samples
+			MaximumNumberSamples: 100, // safety cap
+		},
+	)
+
+	var elapsed time.Duration
+
+	if ok {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	// Override the default ns/op with true end-to-end ingestion time.
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	bytesWritten := float64(writer.TotalBytesWritten.Load())
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (bytesWritten * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s") // Gb/s throughput
+
+	cancel()
+	<-chIngestionEnd
+}
+
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
+
+// BenchmarkIngestor_ioWriter_Noop-16      88016475                13.89 ns/op             18.43 Gb/s            32 B/op          0 allocs/op
+func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
+	writer := helpers.NoopWriter{}
+
+	ingestor, err := NewIngestor(Size1M(), &writer)
+	require.NoError(b, err)
+	require.NotNil(b, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	b.ReportAllocs()
+
+	start := time.Now()
+
+	for b.Loop() {
+		_, _ = ingestor.Write(payload)
+	}
+
+	stableTS, stabilisationOccured := helpers.DetectStabilization(
+		helpers.ParamsDetectStabilization[uint64]{
+			InitialValue: uint64(0),
+
+			GetCurrentValue: func() uint64 {
+				e1, e2 := ingestor.GetArenaEpochs()
+
+				return e1 + e2
+			},
+
+			PauseFn:         func() { helpers.Pause(30) }, // ~500ns on your hardware
+			PauseFnDuration: 500 * time.Nanosecond,        // or measured Pause(30)
+
+			NumberStableSamples:  2,   // require 2 identical samples
+			MaximumNumberSamples: 500, // safety cap
+		},
+	)
+
+	var elapsed time.Duration
+
+	if stabilisationOccured {
+		elapsed = stableTS.Sub(start)
+	} else {
+		elapsed = time.Since(start)
+	}
+
+	// ns/op (end-to-end ingestion)
+	b.ReportMetric(
+		float64(elapsed.Nanoseconds())/float64(b.N),
+		"ns/op",
+	)
+
+	totalBytes := float64(b.N * len(payload))
+	seconds := float64(elapsed.Nanoseconds()) / 1e9
+	gbps := (totalBytes * 8) / (seconds * 1e9)
+
+	b.ReportMetric(gbps, "Gb/s")
+
+	cancel()
+	<-chIngestionEnd
+}
+
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
+
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16     10246448               106.1 ns/op           117 B/op          0 allocs/op
+func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
+	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(b, errCrIngestor)
@@ -128,7 +365,7 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
 	b.ReportAllocs()
-	b.SetParallelism(16) // tune accordingly
+	b.SetParallelism(16)
 	b.ResetTimer()
 
 	var written atomic.Int64
@@ -154,35 +391,37 @@ func BenchmarkIngestor_WriteParallel(b *testing.B) {
 	)
 }
 
-// cpu: AMD Ryzen 5 5600U with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena102400-12         	86013297	        13.91 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena102400-12         	77743675	        15.38 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena102400-12        	73199229	        16.32 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena102400-12       	72738548	        16.50 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena512000-12         	90128590	        12.82 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena512000-12         	84446210	        14.00 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena512000-12        	69715321	        16.45 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena512000-12       	65314560	        17.46 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1048576-12        	95055610	        12.61 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1048576-12        	88900497	        13.53 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1048576-12       	74119821	        15.92 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1048576-12      	65107002	        18.12 ns/op	       0 B/op	       0 allocs/op
+// go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena100K-16                 100000000               11.91 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena100K-16                 87054337                13.06 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena100K-16                64573251                18.67 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena100K-16               26429690                45.41 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena500K-16                 99679041                11.69 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena500K-16                 88759490                12.51 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena500K-16                70224813                16.59 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena500K-16               39498555                29.10 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena1M-16                   98174935                11.58 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena1M-16                   92375154                12.43 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena1M-16                  70577258                15.45 ns/op            0 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1M-16                 43015221                26.37 ns/op            0 B/op          0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
-	sizesArena := []uint32{Size100K(), Size500K(), Size1M()}
+	sizesArena := []Size{Size100K, Size500K, Size1M}
 
 	for _, sizeArena := range sizesArena {
 		for _, sizeMessage := range sizesMessage {
 			b.Run(
 				fmt.Sprintf(
-					"size_msg%d_arena%d",
+					"size_msg%d_arena%s",
 					sizeMessage,
-					sizeArena,
+					sizeArena.String(),
 				),
 
 				func(b *testing.B) {
 					ingestor, errCrIngestor := NewIngestor(
-						sizeArena,
+						sizeArena(),
 						&helpers.NoopWriter{},
 					)
 					require.NoError(b, errCrIngestor)

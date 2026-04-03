@@ -14,7 +14,7 @@ import (
 // Verifies: Ingestion is not automatically started,
 // it should started for correct operation.
 
-func Test_02_01_Error_NoIngestionStart(t *testing.T) {
+func Test_02_Error_NoIngestionStart(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)

@@ -17,7 +17,9 @@ func TestWritePanicDoesNotLeak(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			_ = recover()
+		}()
 
 		ingestor.write(
 			100,
@@ -38,7 +40,9 @@ func TestProducerInWritePanic(t *testing.T) {
 
 	// Use defer/recover to simulate panic in producer
 	func() {
-		defer func() { recover() }()
+		defer func() {
+			_ = recover()
+		}()
 
 		payload := t.Name()
 

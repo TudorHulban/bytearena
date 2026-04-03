@@ -3,15 +3,31 @@ package bytearena
 import (
 	"context"
 	"io"
+	"os"
 	"sync/atomic"
 	"time"
 )
+
+// 1. The Double-Buffer "Handshake"
+// By having arenaFirst and arenaSecond, the system can allow a Producer to keep writing at full speed to one buffer
+// while the Consumer (the flusher) writes the other buffer to the io.Writer.
+
+// The Benefit: No "Stop-the-world" moments.
+// The system never has to pause ingestion while waiting for a slow disk or network write,
+// provided the flush finishes before the second arena fills up.
+
+// 2. Atomic Pointer Management
+// The use of atomic.Pointer[arena] is the modern, idiomatic Go way to handle high-concurrency state.
+// In traditional code, we could use a sync.Mutex to swap buffers.
+// In high-concurrency, that mutex becomes a bottleneck (contention).
+// Using atomic.Pointer allows the "Swap" to happen in a single CPU cycle without blocking any writers.
 
 // Ingestor owns the two arenas and coordinates which one is active.
 // It also handles the rotation and flush on context cancellation.
 type Ingestor struct {
 	writer          io.Writer
 	writerTelemetry io.Writer
+	writerErrors    io.Writer
 
 	flusher func(a *arena)
 
@@ -29,16 +45,18 @@ type Ingestor struct {
 	// This is informational; consumer logic will use it.
 	sealed atomic.Pointer[arena]
 
-	Telemetry ErrorsRegistry
-	Metrics   Metrics
+	Registry ErrorsRegistry
+	Metrics  Metrics
 
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
-	tickIntervalMiliseconds uint16
+	milisecondsTickInterval uint16
+	milisecondsUnblockFlush uint16
 
+	isStopped     atomic.Bool
 	withTelemetry bool
 }
 
@@ -48,6 +66,7 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 	result := Ingestor{
 		writer:          w,
 		writerTelemetry: w,
+		writerErrors:    os.Stdout,
 
 		chFlush: make(chan struct{}, 1),
 
@@ -60,7 +79,8 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		arenaSize:               arenaSize,
 		arenaSealPercentage:     90,
-		tickIntervalMiliseconds: 50,
+		milisecondsTickInterval: 50,
+		milisecondsUnblockFlush: 50,
 	}
 
 	result.flusher = result.flushArena
@@ -70,6 +90,11 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			return nil,
 				errOption
 		}
+	}
+
+	if result.withTelemetry {
+		result.arenaFirst.telemetryObservableRollback = result.Metrics.IncrementRollback
+		result.arenaSecond.telemetryObservableRollback = result.Metrics.IncrementRollback
 	}
 
 	// optimization - Precompute the seal threshold
@@ -107,7 +132,7 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (m *Ingestor) consumerLoop(ctx context.Context) {
 	ticker := time.NewTicker(
-		time.Duration(m.tickIntervalMiliseconds) * time.Millisecond,
+		time.Duration(m.milisecondsTickInterval) * time.Millisecond,
 	)
 	defer ticker.Stop()
 
@@ -117,6 +142,7 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
+			m.isStopped.Store(true)
 			m.flushOnShutdown()
 
 			return
@@ -129,4 +155,8 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 			m.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
+}
+
+func (m *Ingestor) GetArenaEpochs() (uint64, uint64) {
+	return m.arenaFirst.epoch.Load(), m.arenaSecond.epoch.Load()
 }

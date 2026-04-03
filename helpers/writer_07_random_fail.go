@@ -28,7 +28,7 @@ func NewRandomFailWriter(failEvery int) *RandomFailWriter {
 	return &RandomFailWriter{failEvery: failEvery}
 }
 
-func (w *RandomFailWriter) Write(p []byte) (int, error) {
+func (w *RandomFailWriter) Write(payload []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -42,5 +42,5 @@ func (w *RandomFailWriter) Write(p []byte) (int, error) {
 		return 0, ErrEAGAIN
 	}
 
-	return len(p), nil
+	return len(payload), nil
 }

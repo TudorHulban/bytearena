@@ -1,5 +1,9 @@
 package bytearena
 
+import (
+	"runtime"
+)
+
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
 //
@@ -17,8 +21,12 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
 	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
+		m.Registry.Inc(TErrWriteMessageTooLarge)
+
 		return WriteRegion{}, errWrite
 	}
+
+	m.Registry.loadError(errWrite)
 
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.
@@ -76,10 +84,6 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		if cur > limit {
 			arena.AddRollback()
 
-			if m.withTelemetry {
-				m.Metrics.IncrementRollback()
-			}
-
 			arena.Leave()
 			m.signalFlush()
 
@@ -113,10 +117,42 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 //
 // The write function receives a byte slice of length n and must fill it.
 func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
-	// Try to region space (with one retry).
-	region, canWrite := m.TryWrite(n)
-	if canWrite != nil {
-		return canWrite
+	region, errWrite := m.TryWrite(n)
+
+	// If the arena was full, wait for the consumer to rotate, then retry once.
+	if errWrite == ErrWriteArenaFull { //nolint:errorlint
+		staleArena := m.active.Load()
+
+		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
+		// If we see nil here (or isStopped is already set), bail out immediately.
+		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
+		if staleArena == nil || m.isStopped.Load() {
+			m.Registry.Inc(TErrWriteShuttingDown)
+
+			return ErrWriteShuttingDown
+		}
+
+		staleEpoch := staleArena.epoch.Load()
+
+		// Spin until the consumer has swapped in a fresh arena.
+		// When the consumer recycles arena A (after the double rotation), reset() bumps stale.epoch,
+		// the second condition goes false,
+		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
+		for m.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
+			if m.isStopped.Load() { // ← consumer is gone, bail out
+				m.Registry.Inc(TErrWriteShuttingDown)
+
+				return ErrWriteShuttingDown
+			}
+
+			runtime.Gosched()
+		}
+
+		region, errWrite = m.beginWrite(n)
+	}
+
+	if errWrite != nil {
+		return errWrite
 	}
 
 	// Mark write complete.
