@@ -6,6 +6,7 @@ import (
 
 type Metrics struct {
 	NumberRollbacks atomic.Uint64
+	NumberCAS       atomic.Uint64
 
 	// below are picked directly
 	// arena first epoch

@@ -67,7 +67,7 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 
 	payload := "hi!"
 
-	helpers.RunParallel(t,
+	helpers.TestParallel(t,
 		16,
 		100,
 
@@ -107,7 +107,7 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 
 	payload := "hi!"
 
-	helpers.RunParallel(t,
+	helpers.TestParallel(t,
 		16,
 		100,
 

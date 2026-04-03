@@ -93,6 +93,8 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 
 		next := cur + int32(n) //nolint:gosec
 
+		m.Metrics.NumberCAS.Add(1) // TODO: debug only
+
 		// Attempt to reserve [cur, next)
 		if arena.cursor.CompareAndSwap(cur, next) {
 			offset = uint32(cur) //nolint:gosec
