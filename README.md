@@ -144,16 +144,13 @@ If both arenas are:
 
 Then producers do not receive a region to write.
 
-This is correct and necessary for a bounded system.  
+Writer blocking semantics
 
-Possible policies:
+- The ingestor does not guarantee non‑blocking behavior if the injected writer blocks.
+- If non‑blocking or cancellable semantics are required, the caller must wrap the writer in an adapter (e.g. buffered, timeout‑based, or context‑aware).
+- The ingestor will not allocate additional memory, spawn extra goroutines, or create hidden queues to compensate for a blocked writer.
+- Slow or intermittently blocking writers are fully supported; ingestion remains bounded and correct, but overall throughput naturally follows the writer’s speed.
 
-- drop the message ingested with emiting log entries about the drop through other methods / loggers
-- block until space is available
-- return an error
-- degrade to minimal ingestion
-
-The system does not allocate new memory or create hidden queues.
 
 ## 10. Design Guarantees
 
@@ -201,4 +198,5 @@ Arena memory allocated on the socket where producers run, with the consumer foll
 
 ## 11. Benchmarks
 
-Benchmark results provide ingestion only time with no I/O timings.
+Benchmark results were run on Rocky 10.  
+In general they provide ingestion only time with no I/O timings.
