@@ -1,5 +1,10 @@
 package bytearena
 
+import (
+	"context"
+	"time"
+)
+
 // tick performs one consumer iteration:
 // - checks if active arena should be sealed
 // - rotates if needed
@@ -7,11 +12,7 @@ package bytearena
 // - flushes sealed arena
 func (m *Ingestor) tick() {
 	activeArena := m.active.Load()
-	if activeArena == nil {
-		return
-	}
-
-	if !m.shouldSeal(activeArena) {
+	if activeArena == nil || !m.shouldSeal(activeArena) {
 		return
 	}
 
@@ -20,15 +21,29 @@ func (m *Ingestor) tick() {
 		return
 	}
 
-	// wait until no more in flight writers.
-	for !m.waitForWriters(sealedArena) { //nolint:revive
+	// ✅ Create transient context with configurable timeout
+	timeout := time.Duration(m.milisecondsUnblock) * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel() // Always clean up resources
+
+	// ✅ Wait for writers with timeout + adaptive backoff
+	if errWait := m.waitForWritersCtx(ctx, sealedArena); errWait != nil {
+		m.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
+
+		sealedArena.reset()
+		m.sealed.Store(nil)
+
+		return
 	}
 
+	// ✅ Safe to read: all writers finished
 	used := min(sealedArena.cursor.Load(), int32(m.arenaSize)) //nolint:gosec
 	if used > 0 {
 		m.flusher(sealedArena)
 	}
 
 	sealedArena.reset()
+
 	m.sealed.Store(nil)
 }

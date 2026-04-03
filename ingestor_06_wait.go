@@ -3,42 +3,44 @@ package bytearena
 import (
 	"context"
 	"runtime"
+	"time"
 
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// waitForWriters blocks until writers-in-flight reaches zero.
-// should be used in tick.
-func (*Ingestor) waitForWriters(a *arena) bool {
+// waitForWritersCtx blocks until writers==0 OR context expires.
+// Uses adaptive backoff: spin → yield → sleep.
+func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) error {
 	writers := &a.numberWriters
 	spin := 0
 
-	for {
-		if writers.Load() == 0 {
-			return true
-		}
-
-		if spin < 20 {
-			spin++
-
-			helpers.Pause(1)
-
-			continue
-		}
-
-		runtime.Gosched()
-
-		return false
-	}
-}
-
-// waitForWritersCtx provides cooperative wait with cancellation.
-func (i *Ingestor) waitForWritersCtx(ctx context.Context, a *arena) {
-	for !i.waitForWriters(a) {
+	for writers.Load() != 0 {
+		// ✅ Check cancellation EVERY iteration
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err() // context.DeadlineExceeded or Canceled
+
 		default:
 		}
+
+		// ✅ Adaptive backoff strategy
+		switch {
+		case spin < 20:
+			helpers.Pause(1)
+
+			runtime.Gosched()
+
+		case spin < 100:
+			helpers.Pause(3)
+
+			runtime.Gosched()
+
+		default: // Long wait: sleep to avoid CPU burn under sustained contention.
+			time.Sleep(10 * time.Microsecond)
+		}
+
+		spin++
 	}
+
+	return nil
 }

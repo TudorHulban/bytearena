@@ -54,7 +54,7 @@ type Ingestor struct {
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
 	milisecondsTickInterval uint16
-	milisecondsUnblockFlush uint16
+	milisecondsUnblock      uint16
 
 	isStopped     atomic.Bool
 	withTelemetry bool
@@ -80,7 +80,7 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		arenaSize:               arenaSize,
 		arenaSealPercentage:     90,
 		milisecondsTickInterval: 50,
-		milisecondsUnblockFlush: 50,
+		milisecondsUnblock:      50,
 	}
 
 	result.flusher = result.flushArena

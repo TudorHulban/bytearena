@@ -35,13 +35,13 @@ func WithTickMiliseconds(interval uint16) Options {
 	}
 }
 
-func WithUnblockFlushMiliseconds(interval uint16) Options {
+func WithUnblockMiliseconds(interval uint16) Options {
 	return func(i *Ingestor) error {
 		if interval == 0 {
 			return errors.New("unblock flush value cannot be zero")
 		}
 
-		i.milisecondsUnblockFlush = interval
+		i.milisecondsUnblock = interval
 
 		return nil
 	}

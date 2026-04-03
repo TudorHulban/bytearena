@@ -3,6 +3,7 @@ package bytearena
 import (
 	"bytes"
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,13 +11,13 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-func Test_01_Ingestor_SingleWrite(t *testing.T) {
+func Test_01_1_Ingestor_SingleWrite(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(
 		Size100K(),
 		&writer,
-		WithUnblockFlushMiliseconds(100),
+		WithUnblockMiliseconds(100),
 	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
@@ -53,7 +54,7 @@ func Test_01_Ingestor_SingleWrite(t *testing.T) {
 	)
 }
 
-func Test_01_Ingestor_SingleWrite_Parallel(t *testing.T) {
+func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(1024, &writer)
@@ -93,7 +94,7 @@ func Test_01_Ingestor_SingleWrite_Parallel(t *testing.T) {
 	)
 }
 
-func Test_01_Ingestor_ioWriter_Parallel(t *testing.T) {
+func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(1024, &writer)
@@ -126,5 +127,62 @@ func Test_01_Ingestor_ioWriter_Parallel(t *testing.T) {
 
 	require.True(t,
 		ingestor.isStopped.Load(),
+	)
+}
+
+func Test_01_4_CustomFlusherInvoked(t *testing.T) {
+	var writer bytes.Buffer
+
+	// Use functional option if available, or ensure same-package test
+	ingestor, err := NewIngestor(
+		1024,
+		&writer,
+		WithTickMiliseconds(1),
+	)
+	require.NoError(t, err)
+
+	// Track flush invocation
+	flusherCalled := atomic.Bool{}
+
+	originalFlusher := ingestor.flusher
+
+	ingestor.flusher = func(a *arena) {
+		flusherCalled.Store(true)
+
+		originalFlusher(a) // Still do the real flush
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	chEnd := ingestor.StartIngestion(ctx)
+
+	// Write enough to guarantee seal
+	payload := make([]byte, 900)
+	copy(payload, "force seal")
+
+	require.NoError(t,
+		ingestor.write(
+			uint32(len(payload)),
+			func(dst []byte) {
+				copy(dst, payload)
+			},
+		),
+	)
+
+	// Complete the write BEFORE signaling flush
+	ingestor.signalFlush()
+	time.Sleep(10 * time.Millisecond) // Let tick() run
+
+	// Cancel and wait for shutdown
+	cancel()
+
+	select {
+	case <-chEnd:
+	case <-time.After(400 * time.Millisecond):
+		t.Fatal("Ingestion did not exit")
+	}
+
+	require.True(t,
+		flusherCalled.Load(),
+		"custom flusher should have been invoked",
 	)
 }

@@ -32,12 +32,12 @@ test:
 	@echo -e "$(info_color)==> $@ $(no_color)"
 	@go list ./... | while read pkg; do \
 		echo "==> Testing $$pkg"; \
-		go test -race -count=1 -v $$pkg || exit $$?; \
+		go test -race -count=1 -shuffle=on -v $$pkg || exit $$?; \
 	done
 
 
 test-local: 
-	@go test -failfast -count=1 ./... -json -cover -race | tparse -smallscreen
+	@go test -failfast -count=7 -shuffle=on -cpu=1,4,8 ./... -json -cover -race | tparse -smallscreen
 
 # for when golangci lint does not work
 # 	@fieldalignment ./...

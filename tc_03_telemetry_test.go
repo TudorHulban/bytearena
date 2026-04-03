@@ -59,15 +59,16 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 
 	payload3 := helpers.MakePayloadNumbered(20, 3, 'z')
 
-	require.NoError(t,
-		ingestor.write(
-			uint32(len(payload3)),
+	errWrite3 := ingestor.write(
+		uint32(len(payload3)),
 
-			func(destination []byte) {
-				copy(destination, payload3)
-			},
-		),
+		func(destination []byte) {
+			copy(destination, payload3)
+		},
 	)
+	if errWrite3 != nil {
+		require.ErrorIs(t, errWrite3, ErrWriteShuttingDown)
+	}
 
 	cancel()
 
