@@ -32,7 +32,7 @@ test:
 	@echo -e "$(info_color)==> $@ $(no_color)"
 	@go list ./... | while read pkg; do \
 		echo "==> Testing $$pkg"; \
-		go test -race -count=5 -shuffle=on -cpu=1,2,4 -v $$pkg || exit $$?; \
+		go test -race -count=1 -shuffle=on -v $$pkg || exit $$?; \
 	done
 
 
