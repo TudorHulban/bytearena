@@ -98,24 +98,25 @@ func (m *Ingestor) flushOnShutdown() {
 	// Flush second-sealed first (it became active most recently,
 	// producers who retried land here — wait for them first).
 	if secondSealed != nil {
-		// ignoting the error as flushing a partially-written arena
-		// is often preferable to losing everything.
-		_ = m.waitForWritersCtx(ctx, secondSealed)
-
-		used := secondSealed.cursor.Load()
-		if used > 0 {
-			m.flusher(secondSealed)
+		if errWriteSecond := m.waitForWritersCtx(ctx, secondSealed); errWriteSecond == nil {
+			used := secondSealed.cursor.Load()
+			if used > 0 {
+				m.flusher(secondSealed)
+			}
+		} else {
+			m.Registry.Inc(TErrDroppedSealedData)
 		}
 	}
 
 	// Flush first-sealed.
 	if firstSealed != nil && firstSealed != secondSealed {
-		// same reason as above.
-		_ = m.waitForWritersCtx(ctx, firstSealed)
-
-		used := firstSealed.cursor.Load()
-		if used > 0 {
-			m.flusher(firstSealed)
+		if errWriteFirst := m.waitForWritersCtx(ctx, firstSealed); errWriteFirst == nil {
+			used := firstSealed.cursor.Load()
+			if used > 0 {
+				m.flusher(firstSealed)
+			}
+		} else {
+			m.Registry.Inc(TErrDroppedSealedData)
 		}
 	}
 }
