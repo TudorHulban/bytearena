@@ -98,7 +98,9 @@ func (m *Ingestor) flushOnShutdown() {
 	// Flush second-sealed first (it became active most recently,
 	// producers who retried land here — wait for them first).
 	if secondSealed != nil {
-		m.waitForWritersCtx(ctx, secondSealed)
+		// ignoting the error as flushing a partially-written arena
+		// is often preferable to losing everything.
+		_ = m.waitForWritersCtx(ctx, secondSealed)
 
 		used := secondSealed.cursor.Load()
 		if used > 0 {
@@ -108,7 +110,8 @@ func (m *Ingestor) flushOnShutdown() {
 
 	// Flush first-sealed.
 	if firstSealed != nil && firstSealed != secondSealed {
-		m.waitForWritersCtx(ctx, firstSealed)
+		// same reason as above.
+		_ = m.waitForWritersCtx(ctx, firstSealed)
 
 		used := firstSealed.cursor.Load()
 		if used > 0 {

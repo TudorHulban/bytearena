@@ -16,7 +16,7 @@ func Test_01_Ingestor_SingleWrite(t *testing.T) {
 	ingestor, errCrIngestor := NewIngestor(
 		Size100K(),
 		&writer,
-		WithUnblockFlushMiliseconds(100),
+		WithUnblockMiliseconds(100),
 	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)

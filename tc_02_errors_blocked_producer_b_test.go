@@ -14,7 +14,9 @@ import (
 // Test: Consumer context cancelled while waiting for writers.
 // Verifies: Shutdown happens promptly, no hangs.
 func TestContextCancelDuringWait(t *testing.T) {
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &bytes.Buffer{})
+	var writer bytes.Buffer
+
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 

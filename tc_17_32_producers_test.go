@@ -185,7 +185,7 @@ func BenchmarkConcurrentProducers(b *testing.B) {
 				ingestor, errCrIngestor := NewIngestor(
 					Size1M(),
 					writer,
-					WithUnblockFlushMiliseconds(90),
+					WithUnblockMiliseconds(90),
 				)
 				if errCrIngestor != nil {
 					b.Fatalf(
@@ -322,7 +322,7 @@ func Test_4_ProducerConsumerThroughput(t *testing.T) {
 		Size16M(),
 		&writer,
 		WithSealPercentage(97),
-		WithUnblockFlushMiliseconds(190),
+		WithUnblockMiliseconds(190),
 	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)

@@ -1,7 +1,7 @@
 # Arena‑Based Ingestor Architecture
 
 The document describes the high‑performance, lock‑free, double‑buffered byte arena system based on atomic region reservation, and writers‑in‑flight tracking.  
-It is designed for high throughput ingestion with predictable memory usage and bounded behavior under load.
+It is designed for **x86**, **Linux** hosts that need high throughput ingestion with predictable memory usage and bounded behavior under load.
 
 ## 1. Overview
 
@@ -134,23 +134,43 @@ Once safe to flush:
 
 The system is now ready for the next rotation.
 
-## 9. Backpressure Behavior
+## 9. Backpressure and Timeout Behavior
 
-If both arenas are:
+### a. Producer Blocking
 
-- sealed
-- full
-- or otherwise unavailable
+If both arenas are sealed, full, or unavailable:
 
-Then producers do not receive a region to write.
+- Producers block waiting for an available region
+- Blocking unblocks when:
+  1. An arena becomes available (normal rotation), OR
+  2. The `milisecondsUnblock` timeout expires (data dropped)
 
-Writer blocking semantics
+### b. Data Loss on Timeout
 
-- The ingestor does not guarantee non‑blocking behavior if the injected writer blocks.
-- If non‑blocking or cancellable semantics are required, the caller must wrap the writer in an adapter (e.g. buffered, timeout‑based, or context‑aware).
+When `milisecondsUnblock` expires while waiting for writers-in-flight:
+
+- The sealed arena is **reset without flushing**  
+- Any unflushed data is **dropped** (except the case where we shutdown)
+- Drops are reported via `ingestor.Registry(ErrDroppedSealedData)`
+- This trade-off prioritizes ingestor liveness over durability
+
+### c. Writer Blocking Semantics
+
+- The ingestor does **not** guarantee non-blocking behavior if the injected `flusher` blocks
+- If non-blocking or cancellable semantics are required, wrap the injected writer so the blocking can be handle by the wrapper.
 - The ingestor will not allocate additional memory, spawn extra goroutines, or create hidden queues to compensate for a blocked writer.
 - Slow or intermittently blocking writers are fully supported; ingestion remains bounded and correct, but overall throughput naturally follows the writer’s speed.
 
+### (internal) d. Flusher Synchronization Requirement
+
+The `flusher(sealedArena)` callback **must complete synchronously** before returning.  
+
+If the flushing is done asynchronous, it must either:
+
+1. Copy the arena data inside `flusher` before returning, OR
+2. Wait for the async operation to finish before `flusher` returns
+
+Violating this causes data corruption: `tick()` calls `reset()` immediately after `flusher` returns, zeroing the arena while async operations may still be reading it.
 
 ## 10. Design Guarantees
 

@@ -9,6 +9,7 @@ var (
 	ErrWriteMessageTooLarge     = errors.New("write: message too large")
 	ErrWriteShuttingDown        = errors.New("write: shutting down")
 	ErrWriteBackpressure        = errors.New("write: backpressure")
+	ErrDroppedSealedData        = errors.New("droped: sealed arena data")
 )
 
 type errorType uint64
@@ -21,6 +22,7 @@ const (
 	TErrWriteShuttingDown                  // Catch-all
 	TErrWriteBackpressure
 	TErrDeadlineExceeded
+	TErrDroppedSealedData
 	TErrUnknown
 
 	maxErrorTypes // Helper for array size
@@ -34,5 +36,6 @@ var errorTypeNames = [maxErrorTypes]string{
 	TErrWriteShuttingDown:        "shutting_down",
 	TErrWriteBackpressure:        "backpressure",
 	TErrDeadlineExceeded:         "deadline_exceeded",
+	TErrDroppedSealedData:        "droped: sealed arena data",
 	TErrUnknown:                  "unknown",
 }
