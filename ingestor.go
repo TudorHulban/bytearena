@@ -66,6 +66,8 @@ type Ingestor struct {
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
+	subRegions := NewSubRegions(arenaSize)
+
 	result := Ingestor{
 		writer:          w,
 		writerTelemetry: w,
@@ -73,10 +75,10 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		chFlush: make(chan struct{}, 1),
 
-		arenaFirst:  newArena(arenaSize),
-		arenaSecond: newArena(arenaSize),
+		arenaFirst:  newArena(arenaSize, subRegions),
+		arenaSecond: newArena(arenaSize, subRegions),
 
-		subRegions: NewSubRegions(arenaSize),
+		subRegions: subRegions,
 
 		arenaSize:               arenaSize,
 		arenaSealPercentage:     90,

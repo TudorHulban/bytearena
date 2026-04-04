@@ -59,7 +59,7 @@ func Benchmark_Overhead_Demo(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem
 
-// BenchmarkIngestor_Noop_Parallel-12     13983942                91.65 ns/op           31 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_Parallel-16      28852398                43.94 ns/op        31 B/op           0 allocs/op
 func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
@@ -103,7 +103,7 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_WriteOnly_FastPath$' -benchmem
 
-// BenchmarkIngestor_Noop_WriteOnly_FastPath-12            92831403                12.66 ns/op           32 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_WriteOnly_FastPath-16            86346526                13.33 ns/op           32 B/op          0 allocs/op
 func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 	writer := helpers.NoopWriter{}
 	ingestor, _ := NewIngestor(Size4M(), &writer)
@@ -167,12 +167,13 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 // ─────────────────────────────
 // Total: ~76 ns  ← Matches 79.67 ns!
 
-// cpu: AMD Ryzen 5 5600U with Radeon Graphics
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-12            84114493                13.24 ns/op           32 B/op          0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-12            19078651                62.16 ns/op           31 B/op          0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-12            14818225                81.91 ns/op           31 B/op          0 allocs/op
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16            75041295                14.70 ns/op              0 CAS/op             32 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16            17539826                63.18 ns/op              0 CAS/op             32 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16            21848246                55.82 ns/op              0 CAS/op             32 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16           27639540                45.25 ns/op              0 CAS/op             32 B/op          0 allocs/op
 func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
-	noP := []int{1, 2, 6}
+	noP := []int{1, 2, 6, 12}
 
 	for _, parallel := range noP {
 		b.Run(

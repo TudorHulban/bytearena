@@ -23,7 +23,7 @@ const (
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16       75335161                15.90 ns/op           49 B/op          0 allocs/op
+// BenchmarkArena_ConstantPayload-16       69715260                17.75 ns/op           49 B/op          0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -87,7 +87,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_FormattedPayload-16      42398234                29.88 ns/op           54 B/op          0 allocs/op
+// BenchmarkArena_FormattedPayload-16      38152388                31.91 ns/op           54 B/op          0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -154,7 +154,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
-// BenchmarkIngestor_ioWriter_End2End-16           64351134                19.61 ns/op             13.05 Gb/s            98 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_End2End-16           57233280                30.67 ns/op              8.344 Gb/s          107 B/op          0 allocs/op
 func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -217,7 +217,7 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Parallel-16          12203995               102.6 ns/op               2.480 Gb/s           32 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel-16          36387187                34.04 ns/op              7.490 Gb/s           31 B/op          0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -285,7 +285,7 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Noop-16      88016475                13.89 ns/op             18.43 Gb/s            32 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Noop-16      76019983                16.53 ns/op             15.49 Gb/s            31 B/op          0 allocs/op
 func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
@@ -351,7 +351,7 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16     10246448               106.1 ns/op           117 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16     21232791                50.81 ns/op          115 B/op          0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 

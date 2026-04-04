@@ -31,13 +31,19 @@ type arena struct { //nolint:govet
 
 	telemetryObservableRollback func(add uint64)
 
+	// subRegions holds the Lower/Upper bounds for each shard.
+	// Stored here so reset can restore cursors to their correct Lower values
+	// without the Ingestor passing them in on every call.
+	subRegions [8]SubRegion
+
 	// Per-subregion CAS cursors: one atomic counter per shard
 	subRegionCursors [8]*atomic.Uint32
 }
 
-func newArena(arenaSize uint32) *arena {
+func newArena(arenaSize uint32, subRegions [8]SubRegion) *arena {
 	result := arena{
-		buf: make([]byte, arenaSize),
+		buf:        make([]byte, arenaSize),
+		subRegions: subRegions,
 	}
 
 	result.resetSubRegions()
@@ -90,10 +96,15 @@ func (a *arena) reset() {
 
 func (a *arena) resetSubRegions() {
 	for ix := range len(a.subRegionCursors) {
-		a.subRegionCursors[ix] = new(atomic.Uint32)
+		if a.subRegionCursors[ix] == nil {
+			a.subRegionCursors[ix] = new(atomic.Uint32)
+		}
+		// Restore to the sub-region's lower bound, NOT zero.
+		// Allocating new(atomic.Uint32) starts at 0, which is below Lower for
+		// regions 1-7 and causes reserveBytes to return ErrWriteArenaFull immediately.
+		a.subRegionCursors[ix].Store(a.subRegions[ix].Lower)
 	}
 }
-
 func (a *arena) getCursorValues() []uint64 {
 	result := make([]uint64, len(a.subRegionCursors))
 

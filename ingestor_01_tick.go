@@ -3,8 +3,6 @@ package bytearena
 import (
 	"context"
 	"time"
-
-	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // tick performs one consumer iteration:
@@ -13,8 +11,6 @@ import (
 // - drains writers
 // - flushes sealed arena
 func (m *Ingestor) tick() {
-	defer helpers.TraceExit()
-
 	activeArena := m.active.Load()
 	if activeArena == nil || !m.shouldSeal(activeArena) {
 		return

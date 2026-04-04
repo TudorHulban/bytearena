@@ -2,8 +2,6 @@ package bytearena
 
 import (
 	"runtime"
-
-	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
@@ -46,81 +44,7 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-// func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
-// 	// Permanently oversized: message can never fit any arena, do not retry.
-// 	// Check this before Enter() to avoid a spurious rollback increment.
-// 	if int32(n) > int32(m.arenaSize) { //nolint:gosec
-// 		return WriteRegion{},
-// 			ErrWriteMessageTooLarge
-// 	}
-
-// 	arena := m.active.Load()
-// 	if arena == nil {
-// 		return WriteRegion{},
-// 			ErrWriteNoActiveArena
-// 	}
-
-// 	// Enter BEFORE reserving, but validate we are still on the active arena.
-// 	arena.Enter()
-
-// 	if m.active.Load() != arena {
-// 		arena.Leave()
-
-// 		return WriteRegion{},
-// 			ErrWriteActiveArenaMismatch
-// 	}
-
-// 	// m.counterRequests.Load() - consider for bit selecting the region
-
-// 	// === CAS-based overflow-safe reservation ===
-// 	var offset uint32
-
-// 	limit := int32(m.arenaSize) - int32(n) //nolint:gosec
-
-// 	for {
-// 		cur := arena.cursor.Load()
-
-// 		// Overflow-safe check: avoid computing cur + n directly.
-// 		// At this point n <= arenaSize is guaranteed, so limit >= 0.
-// 		// This branch means the arena is currently too full — signal
-// 		// a flush and let TryWrite retry after rotation.
-// 		if cur > limit {
-// 			arena.AddRollback()
-
-// 			arena.Leave()
-// 			m.signalFlush()
-
-// 			return WriteRegion{},
-// 				ErrWriteArenaFull
-// 		}
-
-// 		next := cur + int32(n) //nolint:gosec
-
-// 		// TODO: debug only
-// 		// m.Metrics.NumberCAS.Add(1)
-
-// 		// Attempt to reserve [cur, next)
-// 		if arena.cursor.CompareAndSwap(cur, next) {
-// 			offset = uint32(cur) //nolint:gosec
-
-// 			break
-// 		}
-
-// 		// CAS failed: retry
-// 	}
-
-// 	// Success
-// 	return WriteRegion{
-// 			arena:  arena,
-// 			offset: offset,
-// 			size:   n,
-// 		},
-// 		nil
-// }
-
 func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
-	defer helpers.TraceExit()
-
 	// Oversized message check
 	if int32(n) > int32(m.arenaSize) {
 		return WriteRegion{}, ErrWriteMessageTooLarge
@@ -154,12 +78,14 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	// Delegate CAS reservation to extracted helper
 	cursor := arena.subRegionCursors[regionIdx]
 
-	offset, err := reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
-	if err != nil {
+	offset, errReserve := reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
+	if errReserve != nil {
 		arena.AddRollback()
 		arena.Leave()
 		m.signalFlush()
-		return WriteRegion{}, err
+
+		return WriteRegion{},
+			errReserve
 	}
 
 	// Success: return write handle
@@ -218,6 +144,10 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		if errWrite != nil {
 			return errWrite
 		}
+
+		// Retry succeeded: clear errTryWrite so the check below does not
+		// return ErrWriteArenaFull while holding an unreleased numberWriters.
+		errTryWrite = nil
 	}
 
 	if errTryWrite != nil {
