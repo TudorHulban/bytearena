@@ -78,7 +78,7 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	// Delegate CAS reservation to extracted helper
 	cursor := arena.subRegionCursors[regionIdx]
 
-	offset, errReserve := reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
+	offset, errReserve := m.reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
 	if errReserve != nil {
 		arena.AddRollback()
 		arena.Leave()
