@@ -48,6 +48,9 @@ type Ingestor struct {
 	Registry ErrorsRegistry
 	Metrics  Metrics
 
+	counterRequests atomic.Uint64
+	subRegions      [8]SubRegion
+
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize           uint32
 	arenaSealPercentage uint32
@@ -70,17 +73,20 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		chFlush: make(chan struct{}, 1),
 
-		arenaFirst: &arena{
-			buf: make([]byte, arenaSize),
-		},
-		arenaSecond: &arena{
-			buf: make([]byte, arenaSize),
-		},
+		arenaFirst:  newArena(arenaSize),
+		arenaSecond: newArena(arenaSize),
+
+		subRegions: NewSubRegions(arenaSize),
 
 		arenaSize:               arenaSize,
 		arenaSealPercentage:     90,
 		milisecondsTickInterval: 50,
 		milisecondsUnblock:      50,
+	}
+
+	for i := range result.subRegions {
+		result.arenaFirst.subRegionCursors[i].Store(result.subRegions[i].Lower)
+		result.arenaSecond.subRegionCursors[i].Store(result.subRegions[i].Lower)
 	}
 
 	result.flusher = result.flushArena

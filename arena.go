@@ -35,6 +35,21 @@ type arena struct { //nolint:govet
 	buf []byte
 
 	telemetryObservableRollback func(add uint64)
+
+	// Per-subregion CAS cursors: one atomic counter per shard
+	subRegionCursors [8]*atomic.Uint32
+}
+
+func newArena(arenaSize uint32) *arena {
+	result := arena{
+		buf: make([]byte, arenaSize),
+	}
+
+	for i := 0; i < 8; i++ {
+		result.subRegionCursors[i] = new(atomic.Uint32)
+	}
+
+	return &result
 }
 
 // Enter increments the writers-in-flight counter.

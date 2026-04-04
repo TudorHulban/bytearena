@@ -74,7 +74,7 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 	time.Sleep(10 * time.Millisecond)
 
 	b.ReportAllocs()
-	b.SetParallelism(1)
+	b.SetParallelism(16)
 	b.ResetTimer()
 
 	var staticPayload [32]byte

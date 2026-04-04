@@ -44,68 +44,119 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-//   - ok == false
+// func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
+// 	// Permanently oversized: message can never fit any arena, do not retry.
+// 	// Check this before Enter() to avoid a spurious rollback increment.
+// 	if int32(n) > int32(m.arenaSize) { //nolint:gosec
+// 		return WriteRegion{},
+// 			ErrWriteMessageTooLarge
+// 	}
+
+// 	arena := m.active.Load()
+// 	if arena == nil {
+// 		return WriteRegion{},
+// 			ErrWriteNoActiveArena
+// 	}
+
+// 	// Enter BEFORE reserving, but validate we are still on the active arena.
+// 	arena.Enter()
+
+// 	if m.active.Load() != arena {
+// 		arena.Leave()
+
+// 		return WriteRegion{},
+// 			ErrWriteActiveArenaMismatch
+// 	}
+
+// 	// m.counterRequests.Load() - consider for bit selecting the region
+
+// 	// === CAS-based overflow-safe reservation ===
+// 	var offset uint32
+
+// 	limit := int32(m.arenaSize) - int32(n) //nolint:gosec
+
+// 	for {
+// 		cur := arena.cursor.Load()
+
+// 		// Overflow-safe check: avoid computing cur + n directly.
+// 		// At this point n <= arenaSize is guaranteed, so limit >= 0.
+// 		// This branch means the arena is currently too full — signal
+// 		// a flush and let TryWrite retry after rotation.
+// 		if cur > limit {
+// 			arena.AddRollback()
+
+// 			arena.Leave()
+// 			m.signalFlush()
+
+// 			return WriteRegion{},
+// 				ErrWriteArenaFull
+// 		}
+
+// 		next := cur + int32(n) //nolint:gosec
+
+// 		// TODO: debug only
+// 		// m.Metrics.NumberCAS.Add(1)
+
+// 		// Attempt to reserve [cur, next)
+// 		if arena.cursor.CompareAndSwap(cur, next) {
+// 			offset = uint32(cur) //nolint:gosec
+
+// 			break
+// 		}
+
+// 		// CAS failed: retry
+// 	}
+
+// 	// Success
+// 	return WriteRegion{
+// 			arena:  arena,
+// 			offset: offset,
+// 			size:   n,
+// 		},
+// 		nil
+// }
+
 func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
-	// Permanently oversized: message can never fit any arena, don't retry.
-	// Check this before Enter() to avoid a spurious rollback increment.
-	if int32(n) > int32(m.arenaSize) { //nolint:gosec
-		return WriteRegion{},
-			ErrWriteMessageTooLarge
+	// Oversized message check
+	if int32(n) > int32(m.arenaSize) {
+		return WriteRegion{}, ErrWriteMessageTooLarge
 	}
 
 	arena := m.active.Load()
 	if arena == nil {
-		return WriteRegion{},
-			ErrWriteNoActiveArena
+		return WriteRegion{}, ErrWriteNoActiveArena
 	}
 
-	// Enter BEFORE reserving, but validate we are still on the active arena.
 	arena.Enter()
-
 	if m.active.Load() != arena {
 		arena.Leave()
-
-		return WriteRegion{},
-			ErrWriteActiveArenaMismatch
+		return WriteRegion{}, ErrWriteActiveArenaMismatch
 	}
 
-	// === CAS-based overflow-safe reservation ===
-	var offset uint32
+	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
+	regionIdx := m.counterRequests.Add(1) & 7
+	subRegion := m.subRegions[regionIdx]
 
-	limit := int32(m.arenaSize) - int32(n) //nolint:gosec
-
-	for {
-		cur := arena.cursor.Load()
-
-		// Overflow-safe check: avoid computing cur + n directly.
-		// At this point n <= arenaSize is guaranteed, so limit >= 0.
-		// This branch means the arena is currently too full — signal
-		// a flush and let TryWrite retry after rotation.
-		if cur > limit {
-			arena.AddRollback()
-
-			arena.Leave()
-			m.signalFlush()
-
-			return WriteRegion{},
-				ErrWriteArenaFull
-		}
-
-		next := cur + int32(n) //nolint:gosec
-
-		m.Metrics.NumberCAS.Add(1) // TODO: debug only
-
-		// Attempt to reserve [cur, next)
-		if arena.cursor.CompareAndSwap(cur, next) {
-			offset = uint32(cur) //nolint:gosec
-
-			break
-		}
-
-		// CAS failed: retry
+	// Fast-fail if message doesn't fit this sub-region
+	if n > (subRegion.Upper - subRegion.Lower) {
+		arena.AddRollback()
+		arena.Leave()
+		m.signalFlush()
+		return WriteRegion{}, ErrWriteArenaFull
 	}
 
-	// Success
+	// Delegate CAS reservation to extracted helper
+	cursor := arena.subRegionCursors[regionIdx]
+
+	offset, err := reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
+	if err != nil {
+		arena.AddRollback()
+		arena.Leave()
+		m.signalFlush()
+		return WriteRegion{}, err
+	}
+
+	// Success: return write handle
 	return WriteRegion{
 			arena:  arena,
 			offset: offset,
@@ -119,10 +170,15 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 //
 // The write function receives a byte slice of length n and must fill it.
 func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
-	region, errWrite := m.TryWrite(n)
+	var (
+		region      WriteRegion
+		errTryWrite error
+	)
+
+	region, errTryWrite = m.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errWrite == ErrWriteArenaFull { //nolint:errorlint
+	if errTryWrite == ErrWriteArenaFull { //nolint:errorlint
 		staleArena := m.active.Load()
 
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
@@ -150,11 +206,16 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 			runtime.Gosched()
 		}
 
+		var errWrite error
+
 		region, errWrite = m.beginWrite(n)
+		if errWrite != nil {
+			return errWrite
+		}
 	}
 
-	if errWrite != nil {
-		return errWrite
+	if errTryWrite != nil {
+		return errTryWrite
 	}
 
 	// Mark write complete.

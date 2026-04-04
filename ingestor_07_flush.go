@@ -19,49 +19,109 @@ import (
 //   - handle errors
 //
 // Those responsibilities belong to the consumer loop.
+// func (m *Ingestor) flushArena(a *arena) {
+// 	if a == nil {
+// 		return
+// 	}
+
+// 	used := a.cursor.Load()
+// 	if used <= 0 {
+// 		return
+// 	}
+
+// 	if used > int32(m.arenaSize) { //nolint:gosec
+// 		used = int32(m.arenaSize) //nolint:gosec
+// 	}
+
+// 	isolatedBuffer := make([]byte, used) // no aliasing with arena memory
+// 	copy(isolatedBuffer, a.buf[:used])
+
+// 	for len(isolatedBuffer) > 0 {
+// 		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
+
+// 		// Partial writes are allowed even when err != nil.
+// 		// We stop because the caller cannot recover meaningfully.
+// 		if errWrite != nil {
+// 			m.Registry.loadError(errWrite)
+
+// 			fmt.Fprintf(
+// 				m.writerErrors,
+// 				"flushArena: %s\n",
+// 				errWrite.Error(),
+// 			)
+
+// 			return
+// 		}
+
+// 		if bytesWritten == 0 {
+// 			// Zero progress → abort
+// 			_, _ = m.writerErrors.Write(
+// 				[]byte("writer made zero progress\n"),
+// 			)
+
+// 			return
+// 		}
+
+// 		isolatedBuffer = isolatedBuffer[bytesWritten:]
+// 	}
+// }
+
 func (m *Ingestor) flushArena(a *arena) {
 	if a == nil {
 		return
 	}
 
-	used := a.cursor.Load()
-	if used <= 0 {
+	// Pre-calculate total used bytes across all sub-regions
+	var totalUsed uint32
+	for i := range 8 {
+		cursorVal := a.subRegionCursors[i].Load()
+		lower := m.subRegions[i].Lower
+		// Clamp cursor to region bounds
+		if cursorVal < lower {
+			cursorVal = lower
+		}
+		used := uint32(cursorVal) - lower
+		totalUsed += used
+	}
+	if totalUsed == 0 {
 		return
 	}
 
-	if used > int32(m.arenaSize) { //nolint:gosec
-		used = int32(m.arenaSize) //nolint:gosec
+	// Allocate isolated buffer (no aliasing)
+	isolatedBuffer := make([]byte, 0, totalUsed)
+
+	// Copy each sub-region's written slice in order
+	for i := range 8 {
+		cursorVal := a.subRegionCursors[i].Load()
+		lower := m.subRegions[i].Lower
+		upper := m.subRegions[i].Upper
+
+		// Clamp and compute written range
+		start := lower
+		end := uint32(cursorVal)
+		if end < start {
+			end = start
+		}
+		if end > upper {
+			end = upper
+		}
+		if end > start {
+			isolatedBuffer = append(isolatedBuffer, a.buf[start:end]...)
+		}
 	}
 
-	isolatedBuffer := make([]byte, used) // no aliasing with arena memory
-	copy(isolatedBuffer, a.buf[:used])
-
+	// Write loop (unchanged)
 	for len(isolatedBuffer) > 0 {
 		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
-
-		// Partial writes are allowed even when err != nil.
-		// We stop because the caller cannot recover meaningfully.
 		if errWrite != nil {
 			m.Registry.loadError(errWrite)
-
-			fmt.Fprintf(
-				m.writerErrors,
-				"flushArena: %s\n",
-				errWrite.Error(),
-			)
-
+			fmt.Fprintf(m.writerErrors, "flushArena: %s\n", errWrite.Error())
 			return
 		}
-
 		if bytesWritten == 0 {
-			// Zero progress → abort
-			_, _ = m.writerErrors.Write(
-				[]byte("writer made zero progress\n"),
-			)
-
+			_, _ = m.writerErrors.Write([]byte("writer made zero progress\n"))
 			return
 		}
-
 		isolatedBuffer = isolatedBuffer[bytesWritten:]
 	}
 }
@@ -98,11 +158,11 @@ func (m *Ingestor) flushOnShutdown() {
 	// Flush second-sealed first (it became active most recently,
 	// producers who retried land here — wait for them first).
 	if secondSealed != nil {
-		if errWriteSecond := m.waitForWritersCtx(ctx, secondSealed); errWriteSecond == nil {
-			used := secondSealed.cursor.Load()
-			if used > 0 {
-				m.flusher(secondSealed)
-			}
+		if errWriteSecond := m.waitForWritersCtx(
+			ctx,
+			secondSealed,
+		); errWriteSecond == nil {
+			m.flusher(secondSealed)
 		} else {
 			m.Registry.Inc(TErrDroppedSealedData)
 		}
@@ -110,11 +170,11 @@ func (m *Ingestor) flushOnShutdown() {
 
 	// Flush first-sealed.
 	if firstSealed != nil && firstSealed != secondSealed {
-		if errWriteFirst := m.waitForWritersCtx(ctx, firstSealed); errWriteFirst == nil {
-			used := firstSealed.cursor.Load()
-			if used > 0 {
-				m.flusher(firstSealed)
-			}
+		if errWriteFirst := m.waitForWritersCtx(
+			ctx,
+			firstSealed,
+		); errWriteFirst == nil {
+			m.flusher(firstSealed)
 		} else {
 			m.Registry.Inc(TErrDroppedSealedData)
 		}
