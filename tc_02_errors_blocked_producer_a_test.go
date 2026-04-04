@@ -16,7 +16,7 @@ import (
 func Test_BlockedProducer(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(100, &writer)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 

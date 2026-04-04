@@ -19,53 +19,6 @@ import (
 //   - handle errors
 //
 // Those responsibilities belong to the consumer loop.
-// func (m *Ingestor) flushArena(a *arena) {
-// 	if a == nil {
-// 		return
-// 	}
-
-// 	used := a.cursor.Load()
-// 	if used <= 0 {
-// 		return
-// 	}
-
-// 	if used > int32(m.arenaSize) { //nolint:gosec
-// 		used = int32(m.arenaSize) //nolint:gosec
-// 	}
-
-// 	isolatedBuffer := make([]byte, used) // no aliasing with arena memory
-// 	copy(isolatedBuffer, a.buf[:used])
-
-// 	for len(isolatedBuffer) > 0 {
-// 		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
-
-// 		// Partial writes are allowed even when err != nil.
-// 		// We stop because the caller cannot recover meaningfully.
-// 		if errWrite != nil {
-// 			m.Registry.loadError(errWrite)
-
-// 			fmt.Fprintf(
-// 				m.writerErrors,
-// 				"flushArena: %s\n",
-// 				errWrite.Error(),
-// 			)
-
-// 			return
-// 		}
-
-// 		if bytesWritten == 0 {
-// 			// Zero progress → abort
-// 			_, _ = m.writerErrors.Write(
-// 				[]byte("writer made zero progress\n"),
-// 			)
-
-// 			return
-// 		}
-
-// 		isolatedBuffer = isolatedBuffer[bytesWritten:]
-// 	}
-// }
-
 func (m *Ingestor) flushArena(a *arena) {
 	if a == nil {
 		return
@@ -73,6 +26,7 @@ func (m *Ingestor) flushArena(a *arena) {
 
 	// Pre-calculate total used bytes across all sub-regions
 	var totalUsed uint32
+
 	for i := range 8 {
 		cursorVal := a.subRegionCursors[i].Load()
 		lower := m.subRegions[i].Lower
@@ -80,9 +34,11 @@ func (m *Ingestor) flushArena(a *arena) {
 		if cursorVal < lower {
 			cursorVal = lower
 		}
+
 		used := uint32(cursorVal) - lower
 		totalUsed += used
 	}
+
 	if totalUsed == 0 {
 		return
 	}
@@ -110,18 +66,22 @@ func (m *Ingestor) flushArena(a *arena) {
 		}
 	}
 
-	// Write loop (unchanged)
 	for len(isolatedBuffer) > 0 {
 		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
 		if errWrite != nil {
 			m.Registry.loadError(errWrite)
+
 			fmt.Fprintf(m.writerErrors, "flushArena: %s\n", errWrite.Error())
+
 			return
 		}
+
 		if bytesWritten == 0 {
 			_, _ = m.writerErrors.Write([]byte("writer made zero progress\n"))
+
 			return
 		}
+
 		isolatedBuffer = isolatedBuffer[bytesWritten:]
 	}
 }

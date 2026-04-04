@@ -2,6 +2,8 @@ package bytearena
 
 import (
 	"runtime"
+
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // TryWrite attempts BeginWrite once. If it fails, it reloads the active
@@ -117,6 +119,8 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 // }
 
 func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
+	defer helpers.TraceExit()
+
 	// Oversized message check
 	if int32(n) > int32(m.arenaSize) {
 		return WriteRegion{}, ErrWriteMessageTooLarge
@@ -142,7 +146,9 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		arena.AddRollback()
 		arena.Leave()
 		m.signalFlush()
-		return WriteRegion{}, ErrWriteArenaFull
+
+		return WriteRegion{},
+			ErrWriteArenaFull
 	}
 
 	// Delegate CAS reservation to extracted helper

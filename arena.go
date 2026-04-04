@@ -15,11 +15,6 @@ type arena struct { //nolint:govet
 	epoch atomic.Uint64
 	_     [56]byte // pad to 64 bytes
 
-	// cursor is the current write position (in bytes) inside buf.
-	// Producers use atomic fetch-add on this to reserve regions.
-	cursor atomic.Int32
-	_      [60]byte // pad to 64 bytes (typical cache line size)
-
 	// numberWriters tracks the number of producers currently writing into this arena.
 	// The consumer waits for this to reach zero before flushing.
 	numberWriters atomic.Int32
@@ -45,9 +40,7 @@ func newArena(arenaSize uint32) *arena {
 		buf: make([]byte, arenaSize),
 	}
 
-	for i := 0; i < 8; i++ {
-		result.subRegionCursors[i] = new(atomic.Uint32)
-	}
+	result.resetSubRegions()
 
 	return &result
 }
@@ -73,7 +66,7 @@ func (a *arena) AddRollback() {
 // reset clears the arena state so it can be reused after flushing.
 // This does NOT reallocate the buffer.
 func (a *arena) reset() {
-	a.cursor.Store(0)
+	a.resetSubRegions()
 
 	// numberWriters is intentionally NOT reset here.
 	// waitForWriters guarantees it reaches zero before this arena
@@ -93,4 +86,25 @@ func (a *arena) reset() {
 
 	a.rollbackCounter.Store(0)
 	a.epoch.Add(1)
+}
+
+func (a *arena) resetSubRegions() {
+	for ix := range len(a.subRegionCursors) {
+		a.subRegionCursors[ix] = new(atomic.Uint32)
+	}
+}
+
+func (a *arena) getCursorValues() []uint64 {
+	result := make([]uint64, len(a.subRegionCursors))
+
+	for i := 0; i < len(a.subRegionCursors); i++ {
+		cur := a.subRegionCursors[i]
+		if cur == nil {
+			result[i] = 0
+			continue
+		}
+		result[i] = uint64(cur.Load())
+	}
+
+	return result
 }
