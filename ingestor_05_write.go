@@ -72,7 +72,7 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 		m.signalFlush()
 
 		return WriteRegion{},
-			ErrWriteArenaFull
+			ErrWriteSubRegionFull
 	}
 
 	// Delegate CAS reservation to extracted helper
@@ -110,7 +110,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	region, errTryWrite = m.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errTryWrite == ErrWriteArenaFull { //nolint:errorlint
+	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
 		staleArena := m.active.Load()
 
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.

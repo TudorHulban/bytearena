@@ -12,17 +12,17 @@ var SubRegions [8]SubRegion
 func NewSubRegions(arenaSize uint32) [8]SubRegion {
 	var regions [8]SubRegion
 
-	regionSize := arenaSize / 8
+	regionSize := arenaSize / uint32(len(regions))
 
-	for i := range 8 {
-		regions[i] = SubRegion{
-			Lower: uint32(i) * regionSize,
-			Upper: uint32(i+1) * regionSize,
+	for ix := range regions {
+		regions[ix] = SubRegion{
+			Lower: uint32(ix) * regionSize,
+			Upper: uint32(ix+1) * regionSize,
 		}
 	}
 
 	// Guarantee full coverage: last region ends exactly at arenaSize
-	regions[7].Upper = arenaSize
+	regions[len(regions)-1].Upper = arenaSize
 
 	return regions
 }

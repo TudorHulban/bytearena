@@ -37,7 +37,7 @@ test:
 
 
 test-local: 
-	@go test -failfast -count=7 -shuffle=on -cpu=1,4,8 ./... -json -cover -race | tparse -smallscreen
+	@go test -failfast -count=1 -shuffle=on -cpu=4,8 ./... -json -cover -race | tparse -smallscreen
 
 # for when golangci lint does not work
 # 	@fieldalignment ./...

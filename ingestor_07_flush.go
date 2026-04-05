@@ -2,7 +2,6 @@ package bytearena
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -27,9 +26,10 @@ func (m *Ingestor) flushArena(a *arena) {
 	// Pre-calculate total used bytes across all sub-regions
 	var totalUsed uint32
 
-	for i := range 8 {
-		cursorVal := a.subRegionCursors[i].Load()
-		lower := m.subRegions[i].Lower
+	for ix := range m.subRegions {
+		cursorVal := a.subRegionCursors[ix].Load()
+		lower := m.subRegions[ix].Lower
+
 		// Clamp cursor to region bounds
 		if cursorVal < lower {
 			cursorVal = lower
@@ -43,14 +43,14 @@ func (m *Ingestor) flushArena(a *arena) {
 		return
 	}
 
-	// Allocate isolated buffer (no aliasing)
+	// Allocate isolated buffer (no memory aliasing).
 	isolatedBuffer := make([]byte, 0, totalUsed)
 
-	// Copy each sub-region's written slice in order
-	for i := range 8 {
-		cursorVal := a.subRegionCursors[i].Load()
-		lower := m.subRegions[i].Lower
-		upper := m.subRegions[i].Upper
+	// Copy each sub-region's written slice in order.
+	for ix := range m.subRegions {
+		cursorVal := a.subRegionCursors[ix].Load()
+		lower := m.subRegions[ix].Lower
+		upper := m.subRegions[ix].Upper
 
 		// Clamp and compute written range
 		start := lower
@@ -58,10 +58,12 @@ func (m *Ingestor) flushArena(a *arena) {
 		if end < start {
 			end = start
 		}
+
 		if end > upper {
 			end = upper
 		}
-		if end > start {
+
+		if start < end {
 			isolatedBuffer = append(isolatedBuffer, a.buf[start:end]...)
 		}
 	}
@@ -71,13 +73,11 @@ func (m *Ingestor) flushArena(a *arena) {
 		if errWrite != nil {
 			m.Registry.loadError(errWrite)
 
-			fmt.Fprintf(m.writerErrors, "flushArena: %s\n", errWrite.Error())
-
 			return
 		}
 
 		if bytesWritten == 0 {
-			_, _ = m.writerErrors.Write([]byte("writer made zero progress\n"))
+			m.Registry.loadError(ErrWriterNoProgress)
 
 			return
 		}

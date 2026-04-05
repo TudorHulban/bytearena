@@ -23,17 +23,16 @@ import (
 // 3. Validates each output line has correct format.
 // 4. Validates no duplicate messages appear in output.
 func Test_ManyRotations_01_OutputValidation(t *testing.T) {
-	var out bytes.Buffer
+	var writer bytes.Buffer
 
-	// Use a small arena size to force frequent rotations
 	const (
-		arenaSize         = 512 // bytes
+		arenaSize         = _Size1K
 		numRotations      = 1000
 		numProducers      = 8
 		writesPerProducer = 250 // Total writes: 8 * 250 = 2000 writes
 	)
 
-	ingestor, errCrIngestor := NewIngestor(arenaSize, &out)
+	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
@@ -41,36 +40,39 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 	var rotationCount atomic.Int32
 
 	ingestor.flusher = func(a *arena) {
-		// Count this rotation
-		rotationCount.Add(1)
+		rotationCount.Add(1) // Count this rotation
 
-		// Validate cursor is within bounds
-		cursor := a.cursor.Load()
-		require.GreaterOrEqual(t,
-			cursor,
-			int32(0),
-			"cursor should be non-negative",
-		)
-		require.LessOrEqual(t,
-			cursor,
-			int32(arenaSize),
-			"cursor should not exceed arena size",
-		)
+		// Validate cursors are within bounds.
+		cursors := a.getCursorValues()
+		for ix, cursor := range cursors {
+			region := ingestor.subRegions[ix]
+
+			require.GreaterOrEqual(t,
+				cursor,
+				uint64(region.Lower),
+
+				"cursor[%d] value %d below region lower bound %d",
+				ix,
+				cursor,
+				region.Lower,
+			)
+
+			require.LessOrEqual(t,
+				cursor,
+				uint64(region.Upper),
+
+				"cursor[%d] value %d exceeds region upper bound %d",
+				ix,
+				cursor,
+				region.Upper,
+			)
+		}
 
 		ingestor.flushArena(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-
-	// Start consumer with rotation tracking
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -93,6 +95,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 				// Create variable-sized payload to increase rotation frequency
 				// and create more edge cases
 				size := 10 + rand.Intn(50) // 10-60 bytes
+
 				payload := fmt.Sprintf(
 					"p%d-%d-%s\n",
 					producerID,
@@ -103,7 +106,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 				errWrite := ingestor.write(
 					uint32(len(payload)),
 					func(dst []byte) {
-						copy(dst, []byte(payload))
+						copy(dst, payload)
 					},
 				)
 				if errWrite == nil {
@@ -116,13 +119,16 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 							"Message too large - Expected sometimes with random sizes: %v",
 							errWrite,
 						)
-					} else if errors.Is(errWrite, ErrWriteArenaFull) {
+					} else if errors.Is(errWrite, ErrWriteSubRegionFull) {
 						t.Logf(
 							"Write arena full - Expected during high pressure: %v",
 							errWrite,
 						)
 					} else {
-						t.Logf("Unexpected error: %v", errWrite)
+						t.Logf(
+							"Unexpected error: %v",
+							errWrite,
+						)
 					}
 				}
 
@@ -142,17 +148,11 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 
 	// Stop consumer
 	cancel()
-	wgConsumer.Wait()
+
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
 	for ix, arena := range []*arena{ingestor.arenaFirst, ingestor.arenaSecond} {
-		require.GreaterOrEqual(t,
-			arena.cursor.Load(),
-			int32(0),
-
-			"arena %d cursor negative",
-			ix,
-		)
-
 		require.GreaterOrEqual(t,
 			arena.rollbackCounter.Load(),
 			int32(0),
@@ -178,7 +178,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 	)
 
 	// Verify output integrity
-	output := out.String()
+	output := writer.String()
 	lines := bytes.Split(
 		bytes.TrimSpace([]byte(output)),
 		[]byte{'\n'},
@@ -238,13 +238,15 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 	arenas := []*arena{ingestor.arenaFirst, ingestor.arenaSecond}
 
 	for ix, arena := range arenas {
-		require.GreaterOrEqual(t,
-			arena.cursor.Load(),
-			int32(0),
+		cursors := arena.getCursorValues()
 
-			"arena %d cursor negative",
-			ix,
-		)
+		for _, cursor := range cursors {
+			require.GreaterOrEqual(t,
+				cursor,
+				uint64(0),
+			)
+		}
+
 		require.GreaterOrEqual(t,
 			arena.numberWriters.Load(),
 			int32(0),
@@ -252,6 +254,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 			"arena %d writers negative",
 			ix,
 		)
+
 		require.GreaterOrEqual(t,
 			arena.rollbackCounter.Load(),
 			int32(0),

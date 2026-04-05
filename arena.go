@@ -105,6 +105,7 @@ func (a *arena) resetSubRegions() {
 		a.subRegionCursors[ix].Store(a.subRegions[ix].Lower)
 	}
 }
+
 func (a *arena) getCursorValues() []uint64 {
 	result := make([]uint64, len(a.subRegionCursors))
 
@@ -114,6 +115,7 @@ func (a *arena) getCursorValues() []uint64 {
 			result[i] = 0
 			continue
 		}
+
 		result[i] = uint64(cur.Load())
 	}
 

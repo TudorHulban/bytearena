@@ -5,11 +5,13 @@ import "errors"
 var (
 	ErrWriteNoActiveArena       = errors.New("write: no active arena")
 	ErrWriteActiveArenaMismatch = errors.New("write: active arena mismatch")
-	ErrWriteArenaFull           = errors.New("write: arena full")
-	ErrWriteMessageTooLarge     = errors.New("write: message too large")
-	ErrWriteShuttingDown        = errors.New("write: shutting down")
-	ErrWriteBackpressure        = errors.New("write: backpressure")
-	ErrDroppedSealedData        = errors.New("droped: sealed arena data")
+	ErrWriteSubRegionFull       = errors.New("write: subregion full")
+
+	ErrWriteMessageTooLarge = errors.New("write: message too large")
+	ErrWriteShuttingDown    = errors.New("write: shutting down")
+	ErrWriteBackpressure    = errors.New("write: backpressure")
+	ErrWriterNoProgress     = errors.New("writer: no progress")
+	ErrDroppedSealedData    = errors.New("droped: sealed arena data")
 )
 
 type errorType uint64
@@ -22,6 +24,7 @@ const (
 	TErrWriteShuttingDown                  // Catch-all
 	TErrWriteBackpressure
 	TErrDeadlineExceeded
+	TErrWriterNoProgress
 	TErrDroppedSealedData
 	TErrUnknown
 
@@ -36,6 +39,7 @@ var errorTypeNames = [maxErrorTypes]string{
 	TErrWriteShuttingDown:        "shutting_down",
 	TErrWriteBackpressure:        "backpressure",
 	TErrDeadlineExceeded:         "deadline_exceeded",
+	TErrWriterNoProgress:         "writer: no progress",
 	TErrDroppedSealedData:        "droped: sealed arena data",
 	TErrUnknown:                  "unknown",
 }

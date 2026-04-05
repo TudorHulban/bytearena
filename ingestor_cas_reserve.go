@@ -13,7 +13,8 @@ func (m *Ingestor) reserveBytes(cursor *atomic.Uint32, n uint32, lower, upper ui
 
 		// Check bounds: cur must be within [lower, limit] to reserve [cur, cur+n)
 		if cur < uint32(lower) || cur > limit {
-			return 0, ErrWriteArenaFull // or a more specific "subregion full" error
+			return 0,
+				ErrWriteSubRegionFull
 		}
 
 		next := cur + uint32(n) //nolint:gosec
@@ -24,6 +25,7 @@ func (m *Ingestor) reserveBytes(cursor *atomic.Uint32, n uint32, lower, upper ui
 		if cursor.CompareAndSwap(cur, next) {
 			return uint32(cur), nil //nolint:gosec
 		}
-		// CAS failed: retry
+
+		// CAS failed: retry in next iteration.
 	}
 }

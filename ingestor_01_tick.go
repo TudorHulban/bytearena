@@ -22,13 +22,14 @@ func (m *Ingestor) tick() {
 	}
 
 	// ✅ Create transient context with configurable timeout
-	timeout := time.Duration(m.milisecondsUnblock) * time.Millisecond
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctxUnblockWriterWait, cancel := context.WithTimeout(
+		context.Background(),
+		time.Duration(m.milisecondsUnblock)*time.Millisecond,
+	)
 	defer cancel() // Always clean up resources
 
 	// ✅ Wait for writers with timeout + adaptive backoff
-	if errWait := m.waitForWritersCtx(ctx, sealedArena); errWait != nil {
+	if errWait := m.waitForWritersCtx(ctxUnblockWriterWait, sealedArena); errWait != nil {
 		m.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
 
 		sealedArena.reset()
