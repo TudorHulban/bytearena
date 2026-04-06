@@ -28,39 +28,11 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	chValidation := make(chan string, 10000)
 
 	ingestor.flusher = func(a *arena) {
-		// Extract data from all 8 subregions using cursor snapshots
-		cursors := a.getCursorValues()
-
-		var allData bytes.Buffer
-
-		for ix := range ingestor.subRegions {
-			region := ingestor.subRegions[ix]
-			cursor := cursors[ix]
-
-			// Skip empty subregions (cursor hasn't advanced from Lower bound)
-			if cursor <= uint64(region.Lower) {
-				continue
-			}
-
-			// Data in this subregion: buf[Lower : cursor]
-			start := region.Lower
-			end := uint32(cursor) // cursor is uint64, bounds are uint32
-
-			// Safety clamp: never read beyond region Upper
-			if end > region.Upper {
-				end = region.Upper
-			}
-
-			if start < end {
-				allData.Write(a.buf[start:end])
-				// Add separator to ensure clean line scanning across shard boundaries
-				// (assumes messages don't span shards; separator prevents false merges)
-				allData.WriteByte('\n')
-			}
-		}
+		// Use the new helper to extract all data from sharded subregions
+		data := ingestor.getArenaData(a)
 
 		// Validate all collected data line-by-line
-		scanner := bufio.NewScanner(bytes.NewReader(allData.Bytes()))
+		scanner := bufio.NewScanner(bytes.NewReader(data.Bytes()))
 		for scanner.Scan() {
 			line := string(scanner.Bytes())
 			if line != "" {
@@ -77,7 +49,6 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	// Consumer with validation
 	go func() {
 		for line := range chValidation {
-			// Validate format immediately
 			if !strings.HasPrefix(line, "P") {
 				t.Errorf("Invalid line format: %q", line)
 			}
@@ -91,8 +62,9 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 		},
 	)
 
-	var wgProducers sync.WaitGroup
 	noProducers := 20
+
+	var wgProducers sync.WaitGroup
 	wgProducers.Add(noProducers)
 
 	// Each producer writes a unique pattern
@@ -111,7 +83,6 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 				ingestor.write(
 					uint32(len(payload)),
 					func(dst []byte) {
-						// Double-check destination before writing
 						if len(dst) != len(payload) {
 							t.Errorf(
 								"Buffer size mismatch: got %d, want %d",
@@ -120,7 +91,7 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 							)
 						}
 
-						copy(dst, []byte(payload))
+						copy(dst, payload)
 					},
 				)
 			}
@@ -129,7 +100,6 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 
 	wgProducers.Wait()
 	cancel()
-
 	wgConsumer.Wait()
 	close(chValidation)
 }

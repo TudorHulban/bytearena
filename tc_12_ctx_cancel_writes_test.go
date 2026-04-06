@@ -53,14 +53,20 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 		rotations := rotationCount.Add(1)
 
 		// Track flushed bytes
-		flushedBytes.Add(int64(a.cursor.Load()))
+		flushedBytes.Add(
+			int64(
+				ingestor.getArenaData(a).Len(),
+			),
+		)
+
+		e1, e2 := ingestor.GetArenaEpochs()
 
 		// Log progress periodically
 		if rotations%100 == 0 {
 			t.Logf(
-				"Rotation %d: flushed %d bytes",
+				"Epochs %d: flushed %d bytes",
 				rotations,
-				a.cursor.Load(),
+				e1+e2,
 			)
 		}
 
@@ -97,7 +103,7 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 	wgProducers.Add(numProducers)
 
 	// Start producers that will keep writing until context is done
-	for p := range numProducers {
+	for ix := range numProducers {
 		go func(producerID int) {
 			defer wgProducers.Done()
 
@@ -151,7 +157,7 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 					time.Sleep(time.Duration(r.Intn(10)) * time.Microsecond)
 				}
 			}
-		}(p)
+		}(ix)
 	}
 
 	// Wait for either:
@@ -159,10 +165,14 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 	// - timeout (safety)
 	select {
 	case <-chDone:
-		t.Log("Target rotations reached, shutdown initiated")
+		t.Log(
+			"Target rotations reached, shutdown initiated",
+		)
 
 	case <-time.After(10 * time.Second):
-		t.Fatal("Timeout waiting for target rotations")
+		t.Fatal(
+			"Timeout waiting for target rotations",
+		)
 	}
 
 	// Give time for shutdown to complete
@@ -267,12 +277,13 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 }
 
 // TestContextCancelWithPendingWrites tests cancellation while
-// there are pending writes in both arenas
+// there are pending writes in both arenas.
 func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, err := NewIngestor(1024, &writer)
-	require.NoError(t, err)
+	ingestor, errCrIngestor := NewIngestor(1024, &writer)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
 
 	// Track flush calls
 	flusherCallCount := atomic.Int32{}
@@ -280,7 +291,14 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 
 	ingestor.flusher = func(a *arena) {
 		flusherCallCount.Add(1)
-		t.Logf("Flusher called with %d bytes", a.cursor.Load())
+
+		_, total := a.getLoadValues()
+
+		t.Logf(
+			"Flusher called with %d bytes",
+			total,
+		)
+
 		originalFlusher(a) // Delegate to real flush logic
 		// Do NOT call a.reset() here — production code handles lifecycle
 	}
@@ -309,7 +327,12 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 
 		regions = append(regions, region)
 
-		copy(region.Buf(), []byte(fmt.Sprintf("pending-write-%d", i)))
+		copy(
+			region.Buf(),
+			[]byte(
+				fmt.Sprintf("pending-write-%d", i),
+			),
+		)
 	}
 
 	// Force rotation by writing enough to trigger shouldSeal()
@@ -323,7 +346,12 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 		require.NoError(t, err)
 
 		regions = append(regions, region)
-		copy(region.Buf(), []byte(fmt.Sprintf("arena2-write-%d", i)))
+		copy(
+			region.Buf(),
+			[]byte(
+				fmt.Sprintf("arena2-write-%d", i),
+			),
+		)
 	}
 
 	// ✅ Complete ALL writes BEFORE cancellation to ensure flush can proceed
@@ -353,19 +381,30 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 	}
 
 	// ✅ Assert flusher was called
-	require.Greater(t, flusherCallCount.Load(), int32(0),
-		"Flusher should have been called at least once")
+	require.Greater(t,
+		flusherCallCount.Load(),
+		int32(0),
+
+		"Flusher should have been called at least once",
+	)
 
 	// ✅ Verify output contains expected data (only if flush succeeded)
 	output := writer.String()
+
 	// Note: If timeout caused flush skip, these may fail — that's expected
 	// For deterministic test, ensure writers finish before timeout
 	for i := range 5 {
-		require.Contains(t, output, fmt.Sprintf("pending-write-%d", i))
+		require.Contains(t,
+			output,
+			fmt.Sprintf("pending-write-%d", i),
+		)
 	}
 
 	for i := range 6 {
-		require.Contains(t, output, fmt.Sprintf("arena2-write-%d", i))
+		require.Contains(t,
+			output,
+			fmt.Sprintf("arena2-write-%d", i),
+		)
 	}
 
 	// ✅ Verify no writer leaks

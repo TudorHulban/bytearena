@@ -26,13 +26,12 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 	var writer bytes.Buffer
 
 	const (
-		arenaSize         = _Size1K
 		numRotations      = 1000
 		numProducers      = 8
 		writesPerProducer = 250 // Total writes: 8 * 250 = 2000 writes
 	)
 
-	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
@@ -45,27 +44,25 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 		// Validate cursors are within bounds.
 		cursors := a.getCursorValues()
 		for ix, cursor := range cursors {
-			region := ingestor.subRegions[ix]
+			subRegion := ingestor.subRegions[ix]
 
-			require.GreaterOrEqual(t,
-				cursor,
-				uint64(region.Lower),
+			if cursor < subRegion.Lower {
+				t.Errorf(
+					"cursor[%d] value %d below region lower bound %d",
+					ix,
+					cursor,
+					subRegion.Lower,
+				)
+			}
 
-				"cursor[%d] value %d below region lower bound %d",
-				ix,
-				cursor,
-				region.Lower,
-			)
-
-			require.LessOrEqual(t,
-				cursor,
-				uint64(region.Upper),
-
-				"cursor[%d] value %d exceeds region upper bound %d",
-				ix,
-				cursor,
-				region.Upper,
-			)
+			if cursor > subRegion.Upper {
+				t.Errorf(
+					"cursor[%d] value %d exceeds region upper bound %d",
+					ix,
+					cursor,
+					subRegion.Upper,
+				)
+			}
 		}
 
 		ingestor.flushArena(a)
@@ -234,7 +231,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 		for _, cursor := range cursors {
 			require.GreaterOrEqual(t,
 				cursor,
-				uint64(0),
+				uint32(0),
 			)
 		}
 

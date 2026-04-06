@@ -86,9 +86,14 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		milisecondsUnblock:      50,
 	}
 
-	for i := range result.subRegions {
-		result.arenaFirst.subRegionCursors[i].Store(result.subRegions[i].Lower)
-		result.arenaSecond.subRegionCursors[i].Store(result.subRegions[i].Lower)
+	for ix := range result.subRegions {
+		result.
+			arenaFirst.
+			subRegionCursors[ix].Store(result.subRegions[ix].Lower)
+
+		result.
+			arenaSecond.
+			subRegionCursors[ix].Store(result.subRegions[ix].Lower)
 	}
 
 	result.flusher = result.flushArena
@@ -101,8 +106,13 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 	}
 
 	if result.withTelemetry {
-		result.arenaFirst.telemetryObservableRollback = result.Metrics.IncrementRollback
-		result.arenaSecond.telemetryObservableRollback = result.Metrics.IncrementRollback
+		result.
+			arenaFirst.
+			telemetryObservableRollback = result.Metrics.IncrementRollback
+
+		result.
+			arenaSecond.
+			telemetryObservableRollback = result.Metrics.IncrementRollback
 	}
 
 	// optimization - Precompute the seal threshold
@@ -160,8 +170,4 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 			m.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
-}
-
-func (m *Ingestor) GetArenaEpochs() (uint64, uint64) {
-	return m.arenaFirst.epoch.Load(), m.arenaSecond.epoch.Load()
 }

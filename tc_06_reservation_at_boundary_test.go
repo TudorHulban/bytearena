@@ -51,7 +51,7 @@ func TestReservationAtBoundary(t *testing.T) {
 
 	for i := range initialCursors {
 		require.Equal(t,
-			uint64(subRegions[i].Lower),
+			(subRegions[i].Lower),
 			initialCursors[i],
 
 			"initial cursor[%d] should be at region Lower bound",
@@ -75,7 +75,7 @@ func TestReservationAtBoundary(t *testing.T) {
 		region := subRegions[i]
 
 		require.Equal(t,
-			uint64(region.Upper),
+			(region.Upper),
 			cursor,
 
 			"cursor[%d] should be at Upper bound after 100-byte write",

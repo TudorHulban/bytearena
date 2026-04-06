@@ -17,17 +17,19 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 	var writer bytes.Buffer
 
 	const (
-		arenaSize    = 256
 		numRotations = 500
 	)
 
-	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
+	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	ctxIngestion, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	chIngestionEnd := ingestor.StartIngestion(ctxIngestion)
+
 	// Track cursor values across rotations for all 8 subregions
 	var (
-		cursorHistory [][]uint64 // each entry: snapshot of 8 cursor values at flush time
+		cursorHistory [][]uint32 // each entry: snapshot of 8 cursor values at flush time
 		cursorMutex   sync.Mutex
 	)
 
@@ -44,50 +46,41 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 		for ix, cursor := range cursors {
 			subRegion := ingestor.subRegions[ix]
 
-			require.GreaterOrEqual(t,
-				cursor,
-				uint64(subRegion.Lower),
+			if cursor < subRegion.Lower {
+				t.Errorf(
+					"cursor[%d] value %d below region lower bound %d",
+					ix,
+					cursor,
+					subRegion.Lower,
+				)
+			}
 
-				"cursor[%d] value %d below region lower bound %d",
-				ix,
-				cursor,
-				subRegion.Lower,
-			)
-
-			require.LessOrEqual(t,
-				cursor,
-				uint64(subRegion.Upper),
-
-				"cursor[%d] value %d exceeds region upper bound %d",
-				ix,
-				cursor,
-				subRegion.Upper,
-			)
+			if cursor > subRegion.Upper {
+				t.Errorf(
+					"cursor[%d] value %d exceeds region upper bound %d",
+					ix,
+					cursor,
+					subRegion.Upper,
+				)
+			}
 		}
 
 		ingestor.flushArena(a)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
 
 	// Single producer writing sequentially to make cursor behavior predictable
 	for i := range numRotations * 2 {
 		payload := fmt.Sprintf("msg-%d-", i)
 		payload = payload + randomString(20) // Ensure we fill arena quickly
 
-		_ = ingestor.write(
-			uint32(len(payload)),
-			func(dst []byte) {
-				copy(dst, payload)
-			},
+		require.NoError(t,
+			ingestor.write(
+				uint32(len(payload)),
+
+				func(dst []byte) {
+					copy(dst, payload)
+				},
+			),
 		)
 
 		// Small delay to allow rotations
@@ -97,7 +90,9 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 	}
 
 	cancel()
-	wgConsumer.Wait()
+
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
 	e1, e2 := ingestor.GetArenaEpochs()
 	require.Greater(t,
@@ -107,9 +102,6 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 	)
 
 	// === NEW: Verify all subregions were actively used ===
-	cursorMutex.Lock()
-	defer cursorMutex.Unlock()
-
 	require.Greater(t,
 		len(cursorHistory),
 		0,
@@ -118,10 +110,10 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 
 	// Track which subregions showed cursor movement beyond initial Lower bound
 	regionUsed := make([]bool, 8)
-	initialCursors := make([]uint64, 8)
+	initialCursors := make([]uint32, 8)
 
 	for i := range initialCursors {
-		initialCursors[i] = uint64(ingestor.subRegions[i].Lower)
+		initialCursors[i] = ingestor.subRegions[i].Lower
 	}
 
 	for _, snapshot := range cursorHistory {

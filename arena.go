@@ -106,8 +106,8 @@ func (a *arena) resetSubRegions() {
 	}
 }
 
-func (a *arena) getCursorValues() []uint64 {
-	result := make([]uint64, len(a.subRegionCursors))
+func (a *arena) getCursorValues() []uint32 {
+	result := make([]uint32, len(a.subRegionCursors))
 
 	for ix := range len(a.subRegionCursors) {
 		cur := a.subRegionCursors[ix]
@@ -117,10 +117,31 @@ func (a *arena) getCursorValues() []uint64 {
 			continue
 		}
 
-		result[ix] = uint64(cur.Load())
+		result[ix] = cur.Load()
 	}
 
 	return result
+}
+
+func (a *arena) getLoadValues() ([]uint64, uint64) {
+	result := make([]uint64, len(a.subRegionCursors))
+
+	var total uint64
+
+	for ix := range len(a.subRegionCursors) {
+		cur := a.subRegionCursors[ix]
+		if cur == nil {
+			result[ix] = 0
+
+			continue
+		}
+
+		result[ix] = uint64(cur.Load() - (a.subRegions[ix].Lower))
+
+		total = total + result[ix]
+	}
+
+	return result, total
 }
 
 func (a *arena) getSubregionLoads() ([]uint64, uint64) {
