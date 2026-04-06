@@ -59,7 +59,7 @@ func Benchmark_Overhead_Demo(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem
 
-// BenchmarkIngestor_Noop_Parallel-16      28852398                43.94 ns/op        31 B/op           0 allocs/op
+// BenchmarkIngestor_Noop_Parallel-16    	29518020	        42.76 ns/op	      31 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
@@ -172,6 +172,13 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16            15718856                74.80 ns/op              1.000 CAS/op         32 B/op          0 allocs/op
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16            17522360                68.81 ns/op              1.000 CAS/op         32 B/op          0 allocs/op
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16           21093520                55.83 ns/op              1.019 CAS/op         32 B/op          0 allocs/op
+
+// without CAS tracking
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	75622957	        14.92 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	17937549	        64.45 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	21667705	        55.95 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	30343608	        39.88 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 	noP := []int{1, 2, 6, 12}
 

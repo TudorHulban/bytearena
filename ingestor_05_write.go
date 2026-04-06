@@ -107,12 +107,16 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		errTryWrite error
 	)
 
+	// By loading m.active before TryWrite, staleArena is guaranteed to be the arena that is actually full.
+	// The consumer must either:
+	// a. rotate away from it (m.active != staleArena → spin exits), or
+	// b. reset it after flushing (staleArena.epoch bumps → spin exits)
+	staleArena := m.active.Load()
+
 	region, errTryWrite = m.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
-		staleArena := m.active.Load()
-
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
