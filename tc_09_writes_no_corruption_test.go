@@ -19,20 +19,50 @@ import (
 // Verifies: Each log entry remains intact and contiguous.
 // Enhanced version with write validation.
 func TestNoMemoryCorruption_Enhanced(t *testing.T) {
-	ingestor, errCrIngestor := NewIngestor(64*_Size1K, &bytes.Buffer{})
+	const arenaSize = 64 * _Size1K
+
+	ingestor, errCrIngestor := NewIngestor(arenaSize, &bytes.Buffer{})
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
 	chValidation := make(chan string, 10000)
 
 	ingestor.flusher = func(a *arena) {
-		// Capture output for validation
-		data := a.buf[:a.cursor.Load()]
+		// Extract data from all 8 subregions using cursor snapshots
+		cursors := a.getCursorValues()
 
-		scanner := bufio.NewScanner(bytes.NewReader(data))
+		var allData bytes.Buffer
+
+		for ix := range ingestor.subRegions {
+			region := ingestor.subRegions[ix]
+			cursor := cursors[ix]
+
+			// Skip empty subregions (cursor hasn't advanced from Lower bound)
+			if cursor <= uint64(region.Lower) {
+				continue
+			}
+
+			// Data in this subregion: buf[Lower : cursor]
+			start := region.Lower
+			end := uint32(cursor) // cursor is uint64, bounds are uint32
+
+			// Safety clamp: never read beyond region Upper
+			if end > region.Upper {
+				end = region.Upper
+			}
+
+			if start < end {
+				allData.Write(a.buf[start:end])
+				// Add separator to ensure clean line scanning across shard boundaries
+				// (assumes messages don't span shards; separator prevents false merges)
+				allData.WriteByte('\n')
+			}
+		}
+
+		// Validate all collected data line-by-line
+		scanner := bufio.NewScanner(bytes.NewReader(allData.Bytes()))
 		for scanner.Scan() {
 			line := string(scanner.Bytes())
-
 			if line != "" {
 				chValidation <- line
 			}
@@ -55,7 +85,6 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	}()
 
 	var wgConsumer sync.WaitGroup
-
 	wgConsumer.Go(
 		func() {
 			ingestor.consumerLoop(ctx)
@@ -63,9 +92,7 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 	)
 
 	var wgProducers sync.WaitGroup
-
 	noProducers := 20
-
 	wgProducers.Add(noProducers)
 
 	// Each producer writes a unique pattern
@@ -74,17 +101,23 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 			defer wgProducers.Done()
 
 			for j := range 1000 {
-				payload := fmt.Sprintf("P%d-%d-%s", producerID, j,
-					strings.Repeat("x", 50))
+				payload := fmt.Sprintf(
+					"P%d-%d-%s",
+					producerID,
+					j,
+					strings.Repeat("x", 50),
+				)
 
 				ingestor.write(
 					uint32(len(payload)),
-
 					func(dst []byte) {
 						// Double-check destination before writing
 						if len(dst) != len(payload) {
-							t.Errorf("Buffer size mismatch: got %d, want %d",
-								len(dst), len(payload))
+							t.Errorf(
+								"Buffer size mismatch: got %d, want %d",
+								len(dst),
+								len(payload),
+							)
 						}
 
 						copy(dst, []byte(payload))

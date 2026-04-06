@@ -122,3 +122,24 @@ func (a *arena) getCursorValues() []uint64 {
 
 	return result
 }
+
+func (a *arena) getSubregionLoads() ([]uint64, uint64) {
+	result := make([]uint64, len(a.subRegionCursors))
+
+	var total uint64
+
+	for ix := range len(a.subRegionCursors) {
+		cur := a.subRegionCursors[ix]
+		if cur == nil {
+			result[ix] = 0
+
+			continue
+		}
+
+		result[ix] = uint64(cur.Load()) - uint64(a.subRegions[ix].Lower)
+
+		total = total + result[ix]
+	}
+
+	return result, total
+}
