@@ -24,8 +24,5 @@ func (m *Ingestor) rotate() *arena {
 	// is both visible as active and sealed.
 	m.active.Store(next)
 
-	// Mark former as sealed.
-	m.sealed.Store(activeArena)
-
 	return activeArena
 }

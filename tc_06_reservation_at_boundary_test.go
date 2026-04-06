@@ -21,6 +21,7 @@ import (
 // This ensures the boundary condition is tested deterministically on a single arena.
 func TestReservationAtBoundary(t *testing.T) {
 	var writer bytes.Buffer
+
 	const arenaSize = 800 // 8 subregions × 100 bytes each
 
 	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
@@ -38,6 +39,7 @@ func TestReservationAtBoundary(t *testing.T) {
 		if i == 7 {
 			expectedUpper = arenaSize // last region absorbs remainder
 		}
+
 		require.Equal(t, expectedLower, subRegion.Lower, "region[%d].Lower", i)
 		require.Equal(t, expectedUpper, subRegion.Upper, "region[%d].Upper", i)
 	}

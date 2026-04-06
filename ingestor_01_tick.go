@@ -33,7 +33,6 @@ func (m *Ingestor) tick() {
 		m.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
 
 		sealedArena.reset()
-		m.sealed.Store(nil)
 
 		return
 	}
@@ -42,6 +41,4 @@ func (m *Ingestor) tick() {
 	m.flusher(sealedArena)
 
 	sealedArena.reset()
-
-	m.sealed.Store(nil)
 }

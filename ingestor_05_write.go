@@ -30,7 +30,14 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.
-	return m.beginWrite(n)
+	region, errWrite = m.beginWrite(n)
+	if errWrite != nil {
+		m.Registry.loadError(errWrite)
+
+		return WriteRegion{}, errWrite
+	}
+
+	return region, errWrite
 }
 
 // beginWrite attempts to reserve n bytes in the current active arena.
@@ -44,10 +51,10 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
-	// Oversized message check
-	if int32(n) > int32(m.arenaSize) {
-		return WriteRegion{}, ErrWriteMessageTooLarge
+func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
+	if toReserve > m.maxMessageSize {
+		return WriteRegion{},
+			ErrWriteMessageTooLarge
 	}
 
 	arena := m.active.Load()
@@ -56,8 +63,10 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	}
 
 	arena.Enter()
+
 	if m.active.Load() != arena {
 		arena.Leave()
+
 		return WriteRegion{}, ErrWriteActiveArenaMismatch
 	}
 
@@ -66,7 +75,7 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	subRegion := m.subRegions[regionIdx]
 
 	// Fast-fail if message doesn't fit this sub-region
-	if n > (subRegion.Upper - subRegion.Lower) {
+	if toReserve > (subRegion.Upper - subRegion.Lower) {
 		arena.AddRollback()
 		arena.Leave()
 		m.signalFlush()
@@ -78,7 +87,7 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	// Delegate CAS reservation to extracted helper
 	cursor := arena.subRegionCursors[regionIdx]
 
-	offset, errReserve := m.reserveBytes(cursor, n, subRegion.Lower, subRegion.Upper)
+	offset, errReserve := m.reserveBytes(cursor, toReserve, subRegion.Lower, subRegion.Upper)
 	if errReserve != nil {
 		arena.AddRollback()
 		arena.Leave()
@@ -92,7 +101,7 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 	return WriteRegion{
 			arena:  arena,
 			offset: offset,
-			size:   n,
+			size:   toReserve,
 		},
 		nil
 }

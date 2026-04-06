@@ -18,7 +18,7 @@ func (m *Ingestor) shouldSeal(a *arena) bool {
 		// Per-region seal threshold: absolute offset within arena buffer
 		threshold := subregion.Lower + (regionSize * m.arenaSealPercentage / 100) // TODO: precompute
 
-		cursor := uint32(a.subRegionCursors[ix].Load())
+		cursor := a.subRegionCursors[ix].Load()
 		if cursor >= threshold {
 			return true
 		}

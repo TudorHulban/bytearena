@@ -35,7 +35,7 @@ func (m *Ingestor) flushArena(a *arena) {
 			cursorVal = lower
 		}
 
-		used := uint32(cursorVal) - lower
+		used := cursorVal - lower
 		totalUsed += used
 	}
 
@@ -54,7 +54,8 @@ func (m *Ingestor) flushArena(a *arena) {
 
 		// Clamp and compute written range
 		start := lower
-		end := uint32(cursorVal)
+
+		end := cursorVal
 		if end < start {
 			end = start
 		}

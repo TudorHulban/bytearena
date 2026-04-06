@@ -221,18 +221,9 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 
 	// Verify final arena states are consistent
 	activeArena := ingestor.active.Load()
-	sealedArena := ingestor.sealed.Load()
 
 	// Active arena is niled during shutdown.
 	require.Nil(t, activeArena)
-
-	// If there is a sealed arena, it should have no writers
-	if sealedArena != nil {
-		require.Zero(t,
-			sealedArena.numberWriters.Load(),
-			"sealed arena should have no writers",
-		)
-	}
 
 	// Verify no arena has negative counters
 	arenas := []*arena{ingestor.arenaFirst, ingestor.arenaSecond}

@@ -41,10 +41,6 @@ type Ingestor struct {
 	arenaFirst  *arena
 	arenaSecond *arena
 
-	// The arena currently sealed and waiting to be flushed.
-	// This is informational; consumer logic will use it.
-	sealed atomic.Pointer[arena]
-
 	Registry ErrorsRegistry
 	Metrics  Metrics
 
@@ -52,7 +48,9 @@ type Ingestor struct {
 	subRegions      [8]SubRegion
 
 	// Size of each arena (capacity of Arena.Buf).
-	arenaSize           uint32
+	arenaSize      uint32
+	maxMessageSize uint32
+
 	arenaSealPercentage uint32
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
@@ -66,7 +64,7 @@ type Ingestor struct {
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
-	subRegions := NewSubRegions(arenaSize)
+	subRegions, regionSize := NewSubRegions(arenaSize)
 
 	result := Ingestor{
 		writer:          w,
@@ -80,7 +78,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		subRegions: subRegions,
 
-		arenaSize:               arenaSize,
+		arenaSize:      arenaSize,
+		maxMessageSize: regionSize,
+
 		arenaSealPercentage:     90,
 		milisecondsTickInterval: 50,
 		milisecondsUnblock:      50,
@@ -110,9 +110,6 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)
-
-	// No sealed arena yet.
-	result.sealed.Store(nil)
 
 	return &result,
 		nil

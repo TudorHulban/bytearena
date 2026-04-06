@@ -10,27 +10,6 @@ import (
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-func Benchmark_Overhead_Demo(b *testing.B) {
-	b.SetParallelism(1)
-	b.ResetTimer()
-
-	// Test 1: Simple loop (baseline)
-	b.Run("SimpleLoop", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			// Empty body
-		}
-	})
-
-	// Test 2: RunParallel with empty body
-	b.Run("RunParallel", func(b *testing.B) {
-		b.RunParallel(func(pb *testing.PB) {
-			for pb.Next() {
-				// Empty body
-			}
-		})
-	})
-}
-
 // What's Happening in Each write() Call
 // 1. m.active.Load()                          // atomic pointer load
 // 2. arena.Enter()                            // atomic.Add(&numberWriters, 1)

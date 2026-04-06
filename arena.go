@@ -109,14 +109,15 @@ func (a *arena) resetSubRegions() {
 func (a *arena) getCursorValues() []uint64 {
 	result := make([]uint64, len(a.subRegionCursors))
 
-	for i := 0; i < len(a.subRegionCursors); i++ {
-		cur := a.subRegionCursors[i]
+	for ix := range len(a.subRegionCursors) {
+		cur := a.subRegionCursors[ix]
 		if cur == nil {
-			result[i] = 0
+			result[ix] = 0
+
 			continue
 		}
 
-		result[i] = uint64(cur.Load())
+		result[ix] = uint64(cur.Load())
 	}
 
 	return result
