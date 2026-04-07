@@ -2,6 +2,7 @@
 .linting
 
 *.pprof
+*.prof
 *.pdf
 *.test
 *.out

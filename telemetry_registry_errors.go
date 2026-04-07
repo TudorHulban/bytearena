@@ -74,8 +74,8 @@ func (r *ErrorsRegistry) loadError(value error) {
 	case ErrWriteActiveArenaMismatch:
 		r.Counts[TErrWriteActiveArenaMismatch].value.Add(1)
 
-	case ErrWriteArenaFull:
-		r.Counts[TErrWriteArenaFull].value.Add(1)
+	case ErrWriteSubRegionFull:
+		r.Counts[TErrWriteSubRegionFull].value.Add(1)
 
 	case ErrWriteMessageTooLarge:
 		r.Counts[TErrWriteMessageTooLarge].value.Add(1)

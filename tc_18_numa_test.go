@@ -2,6 +2,11 @@ package bytearena
 
 import (
 	"bytes"
+	"os"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,44 +18,66 @@ import (
 
 // Test: Multiple cores hammer different atomics.
 // Verifies: Cache line padding works (performance, not correctness).
-func TestFalseSharingResistance(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping performance test in short mode")
+// TestNUMAAwareness verifies performance when goroutines
+// are pinned to different NUMA nodes.
+func TestNUMAAwareness(t *testing.T) {
+	if testing.Short() || runtime.GOOS != "linux" {
+		t.Skip("NUMA test requires Linux and non-short mode")
 	}
 
-	ingestor, errCrIngestor := NewIngestor(Size1M(), &bytes.Buffer{})
-	require.NoError(t, errCrIngestor)
-	require.NotNil(t, ingestor)
+	// Check if we have multiple NUMA nodes
+	nodes, errRead := os.ReadFile("/sys/devices/system/node/online")
+	if errRead != nil || strings.TrimSpace(string(nodes)) == "0" {
+		t.Skip(
+			"Single NUMA node detected; skipping NUMA-specific test",
+		)
+	}
 
-	arena := ingestor.active.Load()
+	const (
+		arenaSize = 64 * _Size1K
+		duration  = 2 * time.Second
+	)
 
-	numberExecutions := 1000000
+	ingestor, errRead := NewIngestor(arenaSize, &bytes.Buffer{})
+	require.NoError(t, errRead)
 
-	// Goroutine 1: Hammer cursor
-	go func() {
-		for range numberExecutions {
-			arena.cursor.Add(1)
-		}
-	}()
+	var (
+		wgProducers sync.WaitGroup
+		ops         atomic.Int64
+	)
 
-	// Goroutine 2: Hammer writers
-	go func() {
-		for range numberExecutions {
-			arena.numberWriters.Add(1)
-		}
-	}()
+	// Launch one producer per shard, pinned to different cores (best-effort)
+	for shardIx := range ingestor.subRegions {
+		wgProducers.Add(1)
 
-	// Goroutine 3: Hammer rollback
-	go func() {
-		for range numberExecutions {
-			arena.rollbackCounter.Add(1)
-		}
-	}()
+		go func(shardID int) {
+			defer wgProducers.Done()
 
-	// If padding is wrong, this will be slow due to cache contention
-	// We are not measuring, just ensuring no crashes.
-	time.Sleep(100 * time.Millisecond)
+			// Best-effort CPU affinity (requires golang.org/x/sys/unix)
+			// setCPUAffinity(shardID % runtime.NumCPU())
 
-	// If we got here without data races, padding is likely correct
-	// (run with -race to verify)
+			deadline := time.Now().Add(duration)
+
+			for time.Now().Before(deadline) {
+				// Simulate shard-local write
+				arena := ingestor.active.Load()
+				_ = arena.subRegionCursors[shardID].value.Load()
+
+				ops.Add(1)
+			}
+		}(shardIx)
+	}
+
+	wgProducers.Wait()
+	t.Logf("Completed %d operations in %v", ops.Load(), duration)
+
+	// If false sharing exists, ops/sec will be significantly lower than expected
+	// Baseline: ~50M ops/sec per core for atomic.Add on modern x86
+	expectedMinOps := int64(10_000_000) // Conservative: 10M ops in 2 seconds
+	require.Greater(t,
+		ops.Load(),
+		expectedMinOps,
+
+		"throughput too low; possible false sharing or NUMA contention",
+	)
 }

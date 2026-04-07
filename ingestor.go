@@ -41,15 +41,16 @@ type Ingestor struct {
 	arenaFirst  *arena
 	arenaSecond *arena
 
-	// The arena currently sealed and waiting to be flushed.
-	// This is informational; consumer logic will use it.
-	sealed atomic.Pointer[arena]
-
 	Registry ErrorsRegistry
 	Metrics  Metrics
 
+	counterRequests atomic.Uint64
+	subRegions      [8]SubRegion
+
 	// Size of each arena (capacity of Arena.Buf).
-	arenaSize           uint32
+	arenaSize      uint32
+	maxMessageSize uint32
+
 	arenaSealPercentage uint32
 	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
@@ -63,6 +64,8 @@ type Ingestor struct {
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
+	subRegions, regionSize := NewSubRegions(arenaSize)
+
 	result := Ingestor{
 		writer:          w,
 		writerTelemetry: w,
@@ -70,20 +73,30 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 		chFlush: make(chan struct{}, 1),
 
-		arenaFirst: &arena{
-			buf: make([]byte, arenaSize),
-		},
-		arenaSecond: &arena{
-			buf: make([]byte, arenaSize),
-		},
+		arenaFirst:  newArena(arenaSize, subRegions),
+		arenaSecond: newArena(arenaSize, subRegions),
 
-		arenaSize:               arenaSize,
+		subRegions: subRegions,
+
+		arenaSize:      arenaSize,
+		maxMessageSize: regionSize,
+
 		arenaSealPercentage:     90,
 		milisecondsTickInterval: 50,
 		milisecondsUnblock:      50,
 	}
 
-	result.flusher = result.flushArena
+	for ix := range result.subRegions {
+		result.
+			arenaFirst.
+			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
+
+		result.
+			arenaSecond.
+			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
+	}
+
+	result.flusher = result.FlushArenaPerRegion
 
 	for _, option := range options {
 		if errOption := option(&result); errOption != nil {
@@ -93,8 +106,13 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 	}
 
 	if result.withTelemetry {
-		result.arenaFirst.telemetryObservableRollback = result.Metrics.IncrementRollback
-		result.arenaSecond.telemetryObservableRollback = result.Metrics.IncrementRollback
+		result.
+			arenaFirst.
+			telemetryObservableRollback = result.Metrics.IncrementRollback
+
+		result.
+			arenaSecond.
+			telemetryObservableRollback = result.Metrics.IncrementRollback
 	}
 
 	// optimization - Precompute the seal threshold
@@ -102,9 +120,6 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)
-
-	// No sealed arena yet.
-	result.sealed.Store(nil)
 
 	return &result,
 		nil
@@ -155,8 +170,4 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 			m.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
-}
-
-func (m *Ingestor) GetArenaEpochs() (uint64, uint64) {
-	return m.arenaFirst.epoch.Load(), m.arenaSecond.epoch.Load()
 }

@@ -67,7 +67,7 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 
 	payload := "hi!"
 
-	helpers.RunParallel(t,
+	helpers.TestParallel(t,
 		16,
 		100,
 
@@ -107,7 +107,7 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 
 	payload := "hi!"
 
-	helpers.RunParallel(t,
+	helpers.TestParallel(t,
 		16,
 		100,
 
@@ -135,7 +135,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 
 	// Use functional option if available, or ensure same-package test
 	ingestor, err := NewIngestor(
-		1024,
+		_Size1K,
 		&writer,
 		WithTickMiliseconds(1),
 	)
@@ -155,8 +155,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	chEnd := ingestor.StartIngestion(ctx)
 
-	// Write enough to guarantee seal
-	payload := make([]byte, 900)
+	payload := make([]byte, _Size1K/len(ingestor.subRegions))
 	copy(payload, "force seal")
 
 	require.NoError(t,

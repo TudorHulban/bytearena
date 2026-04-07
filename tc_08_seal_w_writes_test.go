@@ -83,9 +83,9 @@ func TestSealDuringActiveWrites(t *testing.T) {
 	)
 
 	// Now safe to flush
-	used := sealedArena.cursor.Load()
+	_, used := sealedArena.getSubregionLoads()
 
-	ingestor.flushArena(sealedArena)
+	ingestor.FlushArenaPerRegion(sealedArena)
 	require.EqualValues(t,
 		used,
 		writer.Len(),
@@ -98,5 +98,8 @@ func TestSealDuringActiveWrites(t *testing.T) {
 	sealedArena.reset()
 
 	// Verify: All 5 writes were flushed
-	require.Equal(t, 5*100, len(writer.String()))
+	require.Equal(t,
+		noProducers*100,
+		len(writer.String()),
+	)
 }

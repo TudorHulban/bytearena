@@ -7,52 +7,109 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test Case: Reservation Exactly at Arena Boundary
-
-// Test: Producer reserves last bytes exactly at arenaSize-1
+// Test Case: Reservation When All Subregions Are Full
+//
+// Test: Fill all 8 subregions to their Upper bounds (100 bytes each = 800 total),
+// then attempt a 1-byte write.
+//
 // Verifies:
-// - bounds checking works, no off-by-one errors
-// - rollback counter incremented
+// - Each subregion cursor respects its Lower/Upper bounds (no off-by-one)
+// - When all shards are full, beginWrite(1) returns ErrWriteArenaFull
+// - Failed reservation increments rollbackCounter for observability
+//
+// Note: Ingestion consumer loop is not started, preventing automatic rotation.
+// This ensures the boundary condition is tested deterministically on a single arena.
 func TestReservationAtBoundary(t *testing.T) {
-	ingestor, errCrIngestor := NewIngestor(100, &bytes.Buffer{})
+	var writer bytes.Buffer
+
+	const arenaSize = 800 // 8 subregions × 100 bytes each
+
+	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	// Verify subregion layout
+	subRegions := ingestor.subRegions
+	require.Len(t, subRegions, 8)
+
+	for i, subRegion := range subRegions {
+		expectedLower := uint32(i) * 100
+		expectedUpper := uint32(i+1) * 100
+
+		if i == 7 {
+			expectedUpper = arenaSize // last region absorbs remainder
+		}
+
+		require.Equal(t, expectedLower, subRegion.Lower, "region[%d].Lower", i)
+		require.Equal(t, expectedUpper, subRegion.Upper, "region[%d].Upper", i)
+	}
+
 	arena := ingestor.active.Load()
 
-	// Fill arena to 90 bytes
-	arena.cursor.Store(90)
+	// Initial state: all cursors at their region's Lower bound
+	initialCursors := arena.getCursorValues()
 
-	// Producer 1: Reserve 10 bytes (should fit exactly)
-	region10, errReserve10 := ingestor.beginWrite(10)
-	require.NoError(t, errReserve10)
-	require.EqualValues(t,
-		90,
-		region10.offset,
-	)
+	for i := range initialCursors {
+		require.Equal(t,
+			(subRegions[i].Lower),
+			initialCursors[i],
 
-	// Producer 2: Reserve 1 byte (should fail - overflow)
-	regionZero, errReserveMore := ingestor.beginWrite(1)
+			"initial cursor[%d] should be at region Lower bound",
+			i,
+		)
+	}
+
+	// Fill each subregion with a 100-byte write (8 writes × 100 bytes = 800 bytes total)
+	for i := range 8 {
+		region, errWrite := ingestor.beginWrite(100)
+		require.NoError(t, errWrite, "write %d of 100 bytes should succeed", i)
+		require.NotNil(t, region)
+
+		// Complete the write to release writer slot
+		ingestor.EndWrite(region)
+	}
+
+	// Verify all subregion cursors advanced to their Upper bounds
+	cursors := arena.getCursorValues()
+	for i, cursor := range cursors {
+		region := subRegions[i]
+
+		require.Equal(t,
+			(region.Upper),
+			cursor,
+
+			"cursor[%d] should be at Upper bound after 100-byte write",
+			i,
+		)
+	}
+
+	// Now try to write 1 more byte - arena is 100% full, should fail
+	regionExtra, errExtra := ingestor.beginWrite(1)
+
+	// Expect failure: arena physically cannot accept more data
 	require.ErrorIs(t,
-		errReserveMore,
-		ErrWriteArenaFull,
+		errExtra,
+		ErrWriteSubRegionFull,
+
+		"after filling all 800 bytes, 1-byte write should fail with ErrWriteArenaFull",
 	)
-	require.Zero(t, regionZero)
-	require.EqualValues(t,
-		1,
+	require.Zero(t, regionExtra, "failed write should return zero region")
+
+	// Verify rollback was recorded for the failed reservation attempt
+	require.Equal(t,
+		int32(1),
 		arena.rollbackCounter.Load(),
-	)
 
-	// Complete first write
-	ingestor.EndWrite(region10)
+		"failed write should increment rollback counter")
 
-	// Verify: Final cursor at 100
-	require.EqualValues(t,
-		100,
-		arena.cursor.Load(),
-	)
-
+	// Epochs remain zero: rotation is triggered in consumer loop, not during beginWrite failure
 	e1, e2 := ingestor.GetArenaEpochs()
-	require.Zero(t, e1)
-	require.Zero(t, e2)
+	require.Zero(t,
+		e1,
+		"epoch should not advance without consumer rotation",
+	)
+	require.Zero(t,
+		e2,
+		"epoch should not advance without consumer rotation",
+	)
 }

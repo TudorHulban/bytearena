@@ -30,7 +30,14 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.
-	return m.beginWrite(n)
+	region, errWrite = m.beginWrite(n)
+	if errWrite != nil {
+		m.Registry.loadError(errWrite)
+
+		return WriteRegion{}, errWrite
+	}
+
+	return region, errWrite
 }
 
 // beginWrite attempts to reserve n bytes in the current active arena.
@@ -44,70 +51,54 @@ func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-//   - ok == false
-func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
-	// Permanently oversized: message can never fit any arena, don't retry.
-	// Check this before Enter() to avoid a spurious rollback increment.
-	if int32(n) > int32(m.arenaSize) { //nolint:gosec
+func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
+	if toReserve > m.maxMessageSize {
 		return WriteRegion{},
 			ErrWriteMessageTooLarge
 	}
 
 	arena := m.active.Load()
 	if arena == nil {
-		return WriteRegion{},
-			ErrWriteNoActiveArena
+		return WriteRegion{}, ErrWriteNoActiveArena
 	}
 
-	// Enter BEFORE reserving, but validate we are still on the active arena.
 	arena.Enter()
 
 	if m.active.Load() != arena {
 		arena.Leave()
 
+		return WriteRegion{}, ErrWriteActiveArenaMismatch
+	}
+
+	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
+	regionIdx := m.counterRequests.Add(1) & 7
+	subRegion := m.subRegions[regionIdx]
+
+	// Fast-fail if message doesn't fit this sub-region
+	if toReserve > (subRegion.Upper - subRegion.Lower) {
+		arena.AddRollback()
+		arena.Leave()
+		m.signalFlush()
+
 		return WriteRegion{},
-			ErrWriteActiveArenaMismatch
+			ErrWriteSubRegionFull
 	}
 
-	// === CAS-based overflow-safe reservation ===
-	var offset uint32
+	offset, errReserve := m.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
+	if errReserve != nil {
+		arena.AddRollback()
+		arena.Leave()
+		m.signalFlush()
 
-	limit := int32(m.arenaSize) - int32(n) //nolint:gosec
-
-	for {
-		cur := arena.cursor.Load()
-
-		// Overflow-safe check: avoid computing cur + n directly.
-		// At this point n <= arenaSize is guaranteed, so limit >= 0.
-		// This branch means the arena is currently too full — signal
-		// a flush and let TryWrite retry after rotation.
-		if cur > limit {
-			arena.AddRollback()
-
-			arena.Leave()
-			m.signalFlush()
-
-			return WriteRegion{},
-				ErrWriteArenaFull
-		}
-
-		next := cur + int32(n) //nolint:gosec
-
-		// Attempt to reserve [cur, next)
-		if arena.cursor.CompareAndSwap(cur, next) {
-			offset = uint32(cur) //nolint:gosec
-
-			break
-		}
-
-		// CAS failed: retry
+		return WriteRegion{},
+			errReserve
 	}
 
-	// Success
+	// Success: return write handle
 	return WriteRegion{
 			arena:  arena,
 			offset: offset,
-			size:   n,
+			size:   toReserve,
 		},
 		nil
 }
@@ -117,12 +108,21 @@ func (m *Ingestor) beginWrite(n uint32) (WriteRegion, error) {
 //
 // The write function receives a byte slice of length n and must fill it.
 func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
-	region, errWrite := m.TryWrite(n)
+	var (
+		region      WriteRegion
+		errTryWrite error
+	)
+
+	// By loading m.active before TryWrite, staleArena is guaranteed to be the arena that is actually full.
+	// The consumer must either:
+	// a. rotate away from it (m.active != staleArena → spin exits), or
+	// b. reset it after flushing (staleArena.epoch bumps → spin exits)
+	staleArena := m.active.Load()
+
+	region, errTryWrite = m.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errWrite == ErrWriteArenaFull { //nolint:errorlint
-		staleArena := m.active.Load()
-
+	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
@@ -148,11 +148,20 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 			runtime.Gosched()
 		}
 
+		var errWrite error
+
 		region, errWrite = m.beginWrite(n)
+		if errWrite != nil {
+			return errWrite
+		}
+
+		// Retry succeeded: clear errTryWrite so the check below does not
+		// return ErrWriteArenaFull while holding an unreleased numberWriters.
+		errTryWrite = nil
 	}
 
-	if errWrite != nil {
-		return errWrite
+	if errTryWrite != nil {
+		return errTryWrite
 	}
 
 	// Mark write complete.

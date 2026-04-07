@@ -6,6 +6,16 @@ import (
 	"sync/atomic"
 )
 
+// note:
+// If two atomic.Uint32 values are <64 bytes apart
+// in memory → cache-line contention → performance degradation
+
+// PaddedCursor wraps an atomic.Uint32 with cache-line padding
+type PaddedCursor struct {
+	value atomic.Uint32
+	_     [60]byte // pad to 64 bytes (4 + 60 = 64)
+}
+
 // arena represents a single fixed-size logging buffer used in a
 // double-buffered, lock-free producer/consumer setup.
 //
@@ -14,11 +24,6 @@ type arena struct { //nolint:govet
 	// Hot atomics (each on its own cache line).
 	epoch atomic.Uint64
 	_     [56]byte // pad to 64 bytes
-
-	// cursor is the current write position (in bytes) inside buf.
-	// Producers use atomic fetch-add on this to reserve regions.
-	cursor atomic.Int32
-	_      [60]byte // pad to 64 bytes (typical cache line size)
 
 	// numberWriters tracks the number of producers currently writing into this arena.
 	// The consumer waits for this to reach zero before flushing.
@@ -35,6 +40,25 @@ type arena struct { //nolint:govet
 	buf []byte
 
 	telemetryObservableRollback func(add uint64)
+
+	// subRegions holds the Lower/Upper bounds for each shard.
+	// Stored here so reset can restore cursors to their correct Lower values
+	// without the Ingestor passing them in on every call.
+	subRegions [8]SubRegion
+
+	// Per-subregion CAS cursors: one atomic counter per shard
+	subRegionCursors [8]PaddedCursor
+}
+
+func newArena(arenaSize uint32, subRegions [8]SubRegion) *arena {
+	result := arena{
+		buf:        make([]byte, arenaSize),
+		subRegions: subRegions,
+	}
+
+	result.resetSubRegions()
+
+	return &result
 }
 
 // Enter increments the writers-in-flight counter.
@@ -58,7 +82,7 @@ func (a *arena) AddRollback() {
 // reset clears the arena state so it can be reused after flushing.
 // This does NOT reallocate the buffer.
 func (a *arena) reset() {
-	a.cursor.Store(0)
+	a.resetSubRegions()
 
 	// numberWriters is intentionally NOT reset here.
 	// waitForWriters guarantees it reaches zero before this arena
@@ -78,4 +102,51 @@ func (a *arena) reset() {
 
 	a.rollbackCounter.Store(0)
 	a.epoch.Add(1)
+}
+
+func (a *arena) resetSubRegions() {
+	for ix := range a.subRegionCursors {
+		// Restore to the sub-region's lower bound, NOT zero.
+		// PaddedCursor.value is embedded and pre-allocated with the arena;
+		// no nil checks or allocations needed.
+		a.subRegionCursors[ix].value.Store(a.subRegions[ix].Lower)
+	}
+}
+
+func (a *arena) getCursorValues() []uint32 {
+	result := make([]uint32, len(a.subRegionCursors))
+
+	for ix := range len(a.subRegionCursors) {
+		result[ix] = a.subRegionCursors[ix].value.Load()
+	}
+
+	return result
+}
+
+func (a *arena) getLoadValues() ([]uint32, uint32) {
+	result := make([]uint32, len(a.subRegionCursors))
+
+	var total uint32
+
+	for ix := range len(a.subRegionCursors) {
+		result[ix] = a.subRegionCursors[ix].value.Load() - (a.subRegions[ix].Lower)
+
+		total = total + result[ix]
+	}
+
+	return result, total
+}
+
+func (a *arena) getSubregionLoads() ([]uint32, uint32) {
+	result := make([]uint32, len(a.subRegionCursors))
+
+	var total uint32
+
+	for ix := range len(a.subRegionCursors) {
+		result[ix] = a.subRegionCursors[ix].value.Load() - a.subRegions[ix].Lower
+
+		total = total + result[ix]
+	}
+
+	return result, total
 }

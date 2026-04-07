@@ -15,17 +15,17 @@ import (
 
 // Test Case: Hammer arena with huge messages
 
-// Test: Try to hammer arena with write request larger than arena size.
-// Say 90% - 100% of requests are greater than arena size.
+// Test: Try to hammer arena with write request larger than subregion size.
+// Say 90% - 100% of requests are greater than subregion size.
 // Verifies:
 // 1. The 10% of valid writes are correctly written under multiple rotations.
 // 2. Cursor works correctly.
 func TestHammerWithHugeMessages(t *testing.T) {
-	var out bytes.Buffer
+	var writer bytes.Buffer
 
 	// Use a small arena to make oversized writes common
 	const (
-		arenaSize           = 256 // bytes
+		arenaSize           = 800 // bytes → 8 subregions × 100 bytes each
 		hugeRatio           = 90  // 90% of writes are > arenaSize
 		numProducers        = 8
 		writesPerProducer   = 500
@@ -35,7 +35,7 @@ func TestHammerWithHugeMessages(t *testing.T) {
 		expectedValidWrites = totalWritesExpected * (100 - hugeRatio) / 100
 	)
 
-	ingestor, errCrIngestor := NewIngestor(arenaSize, &out)
+	ingestor, errCrIngestor := NewIngestor(arenaSize, &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
@@ -49,18 +49,21 @@ func TestHammerWithHugeMessages(t *testing.T) {
 		successfulWrites atomic.Int64
 	)
 
-	// Track cursor values for verification
+	// Track cursor values for verification (now per-shard snapshots)
 	var (
-		cursorHistory []int32
+		cursorHistory [][]uint32 // each entry: snapshot of 8 cursor values
 		cursorMutex   sync.Mutex
 	)
 
 	ingestor.flusher = func(a *arena) {
 		rotationCount.Add(1)
 
+		// Capture snapshot of all 8 cursors
+		cursors := a.getCursorValues()
+
 		cursorMutex.Lock()
 
-		cursorHistory = append(cursorHistory, a.cursor.Load())
+		cursorHistory = append(cursorHistory, cursors)
 		cursorMutex.Unlock()
 
 		// Track rollbacks from this arena
@@ -69,45 +72,42 @@ func TestHammerWithHugeMessages(t *testing.T) {
 			rollbackCount.Add(int64(rollbacks))
 		}
 
-		// Verify cursor never exceeds arena size
-		cursor := a.cursor.Load()
-		require.LessOrEqual(t,
-			cursor,
-			int32(arenaSize),
-			"cursor %d exceeds arena size %d", cursor, arenaSize)
+		// ✅ Validate each cursor against its subregion bounds (sharded-aware)
+		for ix, cursor := range cursors {
+			subRegion := ingestor.subRegions[ix]
+
+			require.GreaterOrEqual(t,
+				cursor,
+				subRegion.Lower,
+
+				"cursor[%d]=%d below region lower bound %d",
+				ix, cursor, subRegion.Lower,
+			)
+
+			require.LessOrEqual(t,
+				cursor,
+				subRegion.Upper,
+
+				"cursor[%d]=%d exceeds region upper bound %d",
+				ix, cursor, subRegion.Upper,
+			)
+		}
 
 		// Log progress periodically
 		if rotationCount.Load()%50 == 0 {
 			t.Logf(
-				"Rotation %d: cursor=%d, used=%d, rollbacks=%d",
+				"Rotation %d: cursors=%v, rollbacks=%d",
 				rotationCount.Load(),
-				cursor,
-				a.cursor.Load(),
+				cursors,
 				rollbacks,
 			)
 		}
 
-		ingestor.flushArena(a)
-		a.reset()
-
-		// After reset, cursor must be 0
-		require.Zero(t,
-			a.cursor.Load(),
-			"cursor not reset to 0",
-		)
+		ingestor.FlushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-
-	// Start consumer with monitoring
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -172,7 +172,9 @@ func TestHammerWithHugeMessages(t *testing.T) {
 
 	// Stop consumer
 	cancel()
-	wgConsumer.Wait()
+
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
 	// Collect final metrics
 	finalRotations := rotationCount.Load()
@@ -189,46 +191,62 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	t.Logf("Actual oversized writes (>arenaSize): %d", finalOversized)
 	t.Logf("Successful writes: %d", finalSuccessful)
 	t.Logf("Total rollbacks: %d", finalRollbacks)
-	t.Logf("Output size: %d bytes", out.Len())
+	t.Logf("Output size: %d bytes", writer.Len())
 
 	// Verify we had many rotations due to pressure
 	require.Greater(t,
 		finalRotations,
 		int32(10),
+
 		"should have had multiple rotations under pressure",
 	)
 
-	// Verify cursor integrity
+	// ✅ Verify cursor integrity using getCursorValues (sharded-aware)
 	cursorMutex.Lock()
 	defer cursorMutex.Unlock()
 
-	for i, cursor := range cursorHistory {
-		require.GreaterOrEqual(t,
-			cursor,
-			int32(0),
+	require.Greater(t,
+		len(cursorHistory),
+		0,
+		"should have recorded at least one flush snapshot",
+	)
 
-			"cursor[%d] = %d is negative", i, cursor,
-		)
+	for snapshotIdx, cursors := range cursorHistory {
+		require.Len(t,
+			cursors,
+			8,
+			"snapshot[%d] must have 8 cursor values",
+			snapshotIdx)
 
-		require.LessOrEqual(t,
-			cursor,
-			int32(arenaSize),
+		for i, cursor := range cursors {
+			region := ingestor.subRegions[i]
 
-			"cursor[%d] = %d exceeds arena size", i, cursor,
-		)
+			require.GreaterOrEqual(t,
+				cursor,
+				region.Lower,
+				"snapshot[%d]: cursor[%d]=%d < lower=%d",
+				snapshotIdx, i, cursor, region.Lower,
+			)
+
+			require.LessOrEqual(t,
+				cursor,
+				region.Upper,
+				"snapshot[%d]: cursor[%d]=%d > upper=%d",
+				snapshotIdx, i, cursor, region.Upper,
+			)
+		}
 	}
 
 	// Verify valid writes made it to output
-	output := out.String()
-	lines := bytes.Split(bytes.TrimSpace([]byte(output)), []byte{'\n'})
+	output := writer.String()
+	lines := bytes.Split(
+		bytes.TrimSpace([]byte(output)),
+		[]byte{'\n'},
+	)
 	outputLines := len(lines)
 
-	t.Logf(
-		"Output lines: %d", outputLines,
-	)
-	t.Logf(
-		"Expected valid writes (approx): %d", expectedValidWrites,
-	)
+	t.Logf("Output lines: %d", outputLines)
+	t.Logf("Expected valid writes (approx): %d", expectedValidWrites)
 
 	// We should have some output (the valid writes)
 	require.Greater(t,
@@ -241,7 +259,6 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	require.Equal(t,
 		int(finalSuccessful),
 		outputLines,
-
 		"successful writes should match output lines",
 	)
 
@@ -254,8 +271,9 @@ func TestHammerWithHugeMessages(t *testing.T) {
 		require.LessOrEqual(t,
 			len(line),
 			int(arenaSize),
-
-			"output line exceeds arena size: %q (%d bytes)", line, len(line),
+			"output line exceeds arena size: %q (%d bytes)",
+			line,
+			len(line),
 		)
 	}
 
@@ -272,18 +290,17 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	require.GreaterOrEqual(t,
 		finalHuge+finalValid-finalSuccessful,
 		int64(0),
-
 		"write failures should exist",
 	)
 }
 
-// TestHammerWithHugeMessages_Detailed tracks per-rotation metrics
-func TestHammerWithHugeMessages_Detailed(t *testing.T) {
+// TestHammerWithOversizedMessages_Detailed tracks per-rotation metrics
+func TestHammerWithOversizedMessages_Detailed(t *testing.T) {
 	var out bytes.Buffer
 
 	const (
-		arenaSize         = 512
-		hugeRatio         = 95 // 95% huge messages
+		arenaSize         = 800 // 8 subregions × 100 bytes each
+		hugeRatio         = 95  // 95% huge messages
 		numProducers      = 4
 		writesPerProducer = 200
 	)
@@ -292,10 +309,12 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
+	// ✅ Updated: Track per-shard cursor values in metrics
 	type rotationMetrics struct {
+		cursors   []uint32 // snapshot of all 8 subregion cursors
+		usedTotal uint32   // sum of (cursor - Lower) across all shards
+
 		index     int32
-		cursor    int32
-		used      uint32
 		rollbacks int32
 		writers   int32
 	}
@@ -309,30 +328,38 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	ingestor.flusher = func(a *arena) {
 		rotationIndex++
 
+		// ✅ Capture all 8 cursors via getCursorValues()
+		cursors := a.getCursorValues()
+
+		// ✅ Calculate total used bytes across all subregions
+		var usedTotal uint32
+
+		for i, cursor := range cursors {
+			region := ingestor.subRegions[i]
+			if cursor >= region.Lower {
+				usedTotal += cursor - region.Lower
+			}
+		}
+
 		metricsMutex.Lock()
 
-		metrics = append(metrics, rotationMetrics{
-			index:     rotationIndex,
-			cursor:    a.cursor.Load(),
-			used:      uint32(a.cursor.Load()),
-			rollbacks: a.rollbackCounter.Load(),
-			writers:   a.numberWriters.Load(),
-		})
+		metrics = append(
+			metrics,
+			rotationMetrics{
+				index:     rotationIndex,
+				cursors:   cursors,   // ✅ Store full shard snapshot
+				usedTotal: usedTotal, // ✅ Aggregate used bytes
+				rollbacks: a.rollbackCounter.Load(),
+				writers:   a.numberWriters.Load(),
+			},
+		)
 		metricsMutex.Unlock()
 
-		ingestor.flushArena(a)
+		ingestor.FlushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	var wgConsumer sync.WaitGroup
-
-	wgConsumer.Go(
-		func() {
-			ingestor.consumerLoop(ctx)
-		},
-	)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup
 	wgProducers.Add(numProducers)
@@ -386,7 +413,9 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 
 	wgProducers.Wait()
 	cancel()
-	wgConsumer.Wait()
+
+	// Wait for consumer shutdown flush.
+	<-chIngestionEnd
 
 	// Analyze metrics
 	metricsMutex.Lock()
@@ -401,42 +430,50 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	totalRollbacks := int32(0)
 	totalUsed := uint32(0)
 
-	for i, m := range metrics {
-		totalRollbacks = totalRollbacks + m.rollbacks
-		totalUsed = totalUsed + m.used
+	for ix, metric := range metrics {
+		totalRollbacks += metric.rollbacks
+		totalUsed += metric.usedTotal
 
-		// Cursor should never exceed arena size
-		require.LessOrEqual(t,
-			m.cursor,
-			int32(arenaSize),
+		// ✅ Validate each of the 8 cursors against its subregion bounds
+		require.Len(t,
+			metric.cursors,
+			8,
 
-			"rotation %d: cursor %d > arenaSize", i, m.cursor,
+			"rotation %d: must have 8 cursor values",
+			ix,
 		)
 
-		// Used bytes should match cursor (or be clamped to arenaSize)
-		if m.used > 0 {
-			require.GreaterOrEqual(t,
-				m.cursor,
-				int32(0),
+		for shard, cursor := range metric.cursors {
+			region := ingestor.subRegions[shard]
 
-				"rotation %d: cursor negative with used bytes", i,
+			require.GreaterOrEqual(t,
+				cursor,
+				region.Lower,
+				"rotation %d: shard[%d] cursor=%d < lower=%d",
+				ix, shard, cursor, region.Lower,
+			)
+
+			require.LessOrEqual(t,
+				cursor,
+				region.Upper,
+				"rotation %d: shard[%d] cursor=%d > upper=%d",
+				ix, shard, cursor, region.Upper,
 			)
 		}
 
 		// Writers should be 0 at flush time (waitForWriters called)
 		require.Zero(t,
-			m.writers,
-			"rotation %d: writers still active during flush", i,
+			metric.writers,
+			"rotation %d: writers still active during flush", ix,
 		)
 
-		if i > 0 {
+		if ix > 0 {
 			t.Logf(
-				"Rotation %d: cursor=%d, used=%d, rollbacks=%d",
-
-				m.index,
-				m.cursor,
-				m.used,
-				m.rollbacks,
+				"Rotation %d: cursors=%v, usedTotal=%d, rollbacks=%d",
+				metric.index,
+				metric.cursors,
+				metric.usedTotal,
+				metric.rollbacks,
 			)
 		}
 	}
@@ -454,7 +491,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	require.Equal(t,
 		int(writeSuccess.Load()),
 		outputLines,
-
 		"successful writes should match output lines",
 	)
 
@@ -463,7 +499,6 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 	require.GreaterOrEqual(t,
 		writeAttempts.Load()-writeSuccess.Load(),
 		int64(0),
-
 		"write failures should exist",
 	)
 }
