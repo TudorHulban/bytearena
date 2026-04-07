@@ -19,6 +19,7 @@ import (
 //
 // Those responsibilities belong to the consumer loop.
 
+// Copy regions and then one write.
 func (m *Ingestor) FlushArenaIsolatedBuffer(a *arena) {
 	if a == nil {
 		return
@@ -88,6 +89,7 @@ func (m *Ingestor) FlushArenaIsolatedBuffer(a *arena) {
 	}
 }
 
+// Multi-write.
 func (m *Ingestor) FlushArenaPerRegion(a *arena) {
 	if a == nil {
 		return
@@ -101,6 +103,7 @@ func (m *Ingestor) FlushArenaPerRegion(a *arena) {
 		if end < lower {
 			end = lower
 		}
+
 		if end > upper {
 			end = upper
 		}
