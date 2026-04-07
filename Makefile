@@ -35,6 +35,9 @@ test:
 		go test -race -count=1 -shuffle=on -v $$pkg || exit $$?; \
 	done
 
+coverage:
+	go test -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
 
 test-local: 
 	@go test -failfast -count=1 -shuffle=on -cpu=4,8 ./... -json -cover -race | tparse -smallscreen

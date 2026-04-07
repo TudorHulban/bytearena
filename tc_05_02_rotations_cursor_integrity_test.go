@@ -65,7 +65,7 @@ func Test_ManyRotations_02_CursorIntegrity(t *testing.T) {
 			}
 		}
 
-		ingestor.FlushArenaPerRegion(a)
+		ingestor.flushArenaPerRegion(a)
 	}
 
 	// Single producer writing sequentially to make cursor behavior predictable

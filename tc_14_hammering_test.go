@@ -103,7 +103,7 @@ func TestHammerWithHugeMessages(t *testing.T) {
 			)
 		}
 
-		ingestor.FlushArenaPerRegion(a)
+		ingestor.flushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -355,7 +355,7 @@ func TestHammerWithOversizedMessages_Detailed(t *testing.T) {
 		)
 		metricsMutex.Unlock()
 
-		ingestor.FlushArenaPerRegion(a)
+		ingestor.flushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
