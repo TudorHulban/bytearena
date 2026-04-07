@@ -89,11 +89,11 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 	for ix := range result.subRegions {
 		result.
 			arenaFirst.
-			subRegionCursors[ix].Store(result.subRegions[ix].Lower)
+			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
 
 		result.
 			arenaSecond.
-			subRegionCursors[ix].Store(result.subRegions[ix].Lower)
+			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
 	}
 
 	result.flusher = result.flushArena

@@ -27,7 +27,7 @@ func (m *Ingestor) flushArena(a *arena) {
 	var totalUsed uint32
 
 	for ix := range m.subRegions {
-		cursorVal := a.subRegionCursors[ix].Load()
+		cursorVal := a.subRegionCursors[ix].value.Load()
 		lower := m.subRegions[ix].Lower
 
 		// Clamp cursor to region bounds
@@ -48,7 +48,7 @@ func (m *Ingestor) flushArena(a *arena) {
 
 	// Copy each sub-region's written slice in order.
 	for ix := range m.subRegions {
-		cursorVal := a.subRegionCursors[ix].Load()
+		cursorVal := a.subRegionCursors[ix].value.Load()
 		lower := m.subRegions[ix].Lower
 		upper := m.subRegions[ix].Upper
 

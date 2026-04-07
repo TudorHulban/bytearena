@@ -41,7 +41,7 @@ func TestRollbackStorm(t *testing.T) {
 			targetCursor = region.Lower // Safety: do not underflow
 		}
 
-		arena.subRegionCursors[ix].Store(targetCursor)
+		arena.subRegionCursors[ix].value.Store(targetCursor)
 	}
 
 	var wgProducers sync.WaitGroup

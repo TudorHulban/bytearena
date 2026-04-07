@@ -33,7 +33,6 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 	cursorsInit := ingestor.arenaFirst.getCursorValues()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload1 := helpers.MakePayloadNumbered(20, 1, 'x')
@@ -88,8 +87,6 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 		string(payload1),
 	)
 
-	// arena flush #1 → arenaFirst  → payload1 + payload2 (40 bytes) → Write call #1
-	// arena flush #2 → arenaSecond → payload3 (20 bytes)            → Write call #2
 	assert.EqualValues(t,
 		1,
 		writer.NumberWrites.Load(),
@@ -110,19 +107,6 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 
 		"number rollbacks",
 	)
-
-	// 	TryWrite
-	//  └─ beginWrite attempt #1
-	//        cur=40 > limit=30  →  rollback #1, signalFlush, ErrWriteArenaFull
-	//  └─ not ErrWriteMessageTooLarge, so retries immediately:
-	//  └─ beginWrite attempt #2
-	//        cur=40 > limit=30  →  rollback #2, signalFlush, ErrWriteArenaFull
-	//  └─ returns ErrWriteArenaFull
-
-	// TryWrite retries on any error except ErrWriteMessageTooLarge.
-	// Both attempts land on the same still-full arenaFirst because the consumer goroutine has not been scheduled yet.
-	// signalFlush only sends to a channel, the actual rotation is async.
-	// The more rollbacks are not a bug; they are an accurate count of failed reservation attempts.
 
 	ingestor.ReportTelemetry(ingestor)
 }

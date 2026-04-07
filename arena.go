@@ -6,6 +6,16 @@ import (
 	"sync/atomic"
 )
 
+// note:
+// If two atomic.Uint32 values are <64 bytes apart
+// in memory → cache-line contention → performance degradation
+
+// PaddedCursor wraps an atomic.Uint32 with cache-line padding
+type PaddedCursor struct {
+	value atomic.Uint32
+	_     [60]byte // pad to 64 bytes (4 + 60 = 64)
+}
+
 // arena represents a single fixed-size logging buffer used in a
 // double-buffered, lock-free producer/consumer setup.
 //
@@ -37,7 +47,7 @@ type arena struct { //nolint:govet
 	subRegions [8]SubRegion
 
 	// Per-subregion CAS cursors: one atomic counter per shard
-	subRegionCursors [8]*atomic.Uint32
+	subRegionCursors [8]PaddedCursor
 }
 
 func newArena(arenaSize uint32, subRegions [8]SubRegion) *arena {
@@ -95,14 +105,11 @@ func (a *arena) reset() {
 }
 
 func (a *arena) resetSubRegions() {
-	for ix := range len(a.subRegionCursors) {
-		if a.subRegionCursors[ix] == nil {
-			a.subRegionCursors[ix] = new(atomic.Uint32)
-		}
+	for ix := range a.subRegionCursors {
 		// Restore to the sub-region's lower bound, NOT zero.
-		// Allocating new(atomic.Uint32) starts at 0, which is below Lower for
-		// regions 1-7 and causes reserveBytes to return ErrWriteArenaFull immediately.
-		a.subRegionCursors[ix].Store(a.subRegions[ix].Lower)
+		// PaddedCursor.value is embedded and pre-allocated with the arena;
+		// no nil checks or allocations needed.
+		a.subRegionCursors[ix].value.Store(a.subRegions[ix].Lower)
 	}
 }
 
@@ -110,33 +117,19 @@ func (a *arena) getCursorValues() []uint32 {
 	result := make([]uint32, len(a.subRegionCursors))
 
 	for ix := range len(a.subRegionCursors) {
-		cur := a.subRegionCursors[ix]
-		if cur == nil {
-			result[ix] = 0
-
-			continue
-		}
-
-		result[ix] = cur.Load()
+		result[ix] = a.subRegionCursors[ix].value.Load()
 	}
 
 	return result
 }
 
-func (a *arena) getLoadValues() ([]uint64, uint64) {
-	result := make([]uint64, len(a.subRegionCursors))
+func (a *arena) getLoadValues() ([]uint32, uint32) {
+	result := make([]uint32, len(a.subRegionCursors))
 
-	var total uint64
+	var total uint32
 
 	for ix := range len(a.subRegionCursors) {
-		cur := a.subRegionCursors[ix]
-		if cur == nil {
-			result[ix] = 0
-
-			continue
-		}
-
-		result[ix] = uint64(cur.Load() - (a.subRegions[ix].Lower))
+		result[ix] = a.subRegionCursors[ix].value.Load() - (a.subRegions[ix].Lower)
 
 		total = total + result[ix]
 	}
@@ -144,20 +137,13 @@ func (a *arena) getLoadValues() ([]uint64, uint64) {
 	return result, total
 }
 
-func (a *arena) getSubregionLoads() ([]uint64, uint64) {
-	result := make([]uint64, len(a.subRegionCursors))
+func (a *arena) getSubregionLoads() ([]uint32, uint32) {
+	result := make([]uint32, len(a.subRegionCursors))
 
-	var total uint64
+	var total uint32
 
 	for ix := range len(a.subRegionCursors) {
-		cur := a.subRegionCursors[ix]
-		if cur == nil {
-			result[ix] = 0
-
-			continue
-		}
-
-		result[ix] = uint64(cur.Load()) - uint64(a.subRegions[ix].Lower)
+		result[ix] = a.subRegionCursors[ix].value.Load() - a.subRegions[ix].Lower
 
 		total = total + result[ix]
 	}

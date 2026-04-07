@@ -39,6 +39,7 @@ linters:
     - intrange
     - ireturn
     - lll
+    - maintidx
     - mnd
     - nestif
     - noinlineerr

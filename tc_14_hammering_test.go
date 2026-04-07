@@ -62,6 +62,7 @@ func TestHammerWithHugeMessages(t *testing.T) {
 		cursors := a.getCursorValues()
 
 		cursorMutex.Lock()
+
 		cursorHistory = append(cursorHistory, cursors)
 		cursorMutex.Unlock()
 
@@ -126,10 +127,12 @@ func TestHammerWithHugeMessages(t *testing.T) {
 				if r.Intn(100) < hugeRatio {
 					// Huge write: 2x to 10x arena size
 					size = arenaSize + r.Intn(arenaSize*9)
+
 					hugeWrites.Add(1)
 				} else {
 					// Valid write: 10-50 bytes
 					size = 10 + r.Intn(40)
+
 					validWrites.Add(1)
 				}
 
@@ -291,8 +294,8 @@ func TestHammerWithHugeMessages(t *testing.T) {
 	)
 }
 
-// TestHammerWithHugeMessages_Detailed tracks per-rotation metrics
-func TestHammerWithHugeMessages_Detailed(t *testing.T) {
+// TestHammerWithOversizedMessages_Detailed tracks per-rotation metrics
+func TestHammerWithOversizedMessages_Detailed(t *testing.T) {
 	var out bytes.Buffer
 
 	const (
@@ -308,9 +311,10 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 
 	// ✅ Updated: Track per-shard cursor values in metrics
 	type rotationMetrics struct {
-		index     int32
 		cursors   []uint32 // snapshot of all 8 subregion cursors
 		usedTotal uint32   // sum of (cursor - Lower) across all shards
+
+		index     int32
 		rollbacks int32
 		writers   int32
 	}
@@ -338,13 +342,17 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 		}
 
 		metricsMutex.Lock()
-		metrics = append(metrics, rotationMetrics{
-			index:     rotationIndex,
-			cursors:   cursors,   // ✅ Store full shard snapshot
-			usedTotal: usedTotal, // ✅ Aggregate used bytes
-			rollbacks: a.rollbackCounter.Load(),
-			writers:   a.numberWriters.Load(),
-		})
+
+		metrics = append(
+			metrics,
+			rotationMetrics{
+				index:     rotationIndex,
+				cursors:   cursors,   // ✅ Store full shard snapshot
+				usedTotal: usedTotal, // ✅ Aggregate used bytes
+				rollbacks: a.rollbackCounter.Load(),
+				writers:   a.numberWriters.Load(),
+			},
+		)
 		metricsMutex.Unlock()
 
 		ingestor.flushArena(a)
@@ -374,6 +382,7 @@ func TestHammerWithHugeMessages_Detailed(t *testing.T) {
 				if r.Intn(100) < hugeRatio {
 					// Oversized: 1.5x to 5x arena size
 					size = arenaSize + r.Intn(arenaSize*4)
+
 					writeOversized.Add(1)
 				} else {
 					// Valid: 10-100 bytes
