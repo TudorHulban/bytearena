@@ -96,7 +96,7 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
 	}
 
-	result.flusher = result.flushArena
+	result.flusher = result.FlushArenaPerRegion
 
 	for _, option := range options {
 		if errOption := option(&result); errOption != nil {

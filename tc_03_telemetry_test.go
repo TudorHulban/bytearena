@@ -88,7 +88,7 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 	)
 
 	assert.EqualValues(t,
-		1,
+		3,
 		writer.NumberWrites.Load(),
 	)
 	assert.EqualValues(t,

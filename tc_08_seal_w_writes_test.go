@@ -85,7 +85,7 @@ func TestSealDuringActiveWrites(t *testing.T) {
 	// Now safe to flush
 	_, used := sealedArena.getSubregionLoads()
 
-	ingestor.flushArena(sealedArena)
+	ingestor.FlushArenaPerRegion(sealedArena)
 	require.EqualValues(t,
 		used,
 		writer.Len(),

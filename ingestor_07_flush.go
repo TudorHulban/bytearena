@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Flush sealed arena contents using the provided writer function.
+// Flushers for sealed arena contents using the provided writer function.
 //
 // The writer receives:
 //   - the arena pointer
@@ -18,7 +18,8 @@ import (
 //   - handle errors
 //
 // Those responsibilities belong to the consumer loop.
-func (m *Ingestor) flushArena(a *arena) {
+
+func (m *Ingestor) FlushArenaIsolatedBuffer(a *arena) {
 	if a == nil {
 		return
 	}
@@ -84,6 +85,44 @@ func (m *Ingestor) flushArena(a *arena) {
 		}
 
 		isolatedBuffer = isolatedBuffer[bytesWritten:]
+	}
+}
+
+func (m *Ingestor) FlushArenaPerRegion(a *arena) {
+	if a == nil {
+		return
+	}
+
+	for ix := range m.subRegions {
+		lower := m.subRegions[ix].Lower
+		upper := m.subRegions[ix].Upper
+
+		end := a.subRegionCursors[ix].value.Load()
+		if end < lower {
+			end = lower
+		}
+		if end > upper {
+			end = upper
+		}
+
+		data := a.buf[lower:end]
+
+		for len(data) > 0 {
+			bytesWritten, errWrite := m.writer.Write(data)
+			if errWrite != nil {
+				m.Registry.loadError(errWrite)
+
+				return
+			}
+
+			if bytesWritten == 0 {
+				m.Registry.loadError(ErrWriterNoProgress)
+
+				return
+			}
+
+			data = data[bytesWritten:]
+		}
 	}
 }
 

@@ -40,7 +40,7 @@ func TestNoMemoryCorruption_Enhanced(t *testing.T) {
 			}
 		}
 
-		ingestor.flushArena(a)
+		ingestor.FlushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
