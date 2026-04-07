@@ -70,3 +70,11 @@ func WithErrorsWriter(w io.Writer) Options {
 		return nil
 	}
 }
+
+func WithIsolatedBufferFlusher() Options {
+	return func(i *Ingestor) error {
+		i.flusher = i.flushArenaIsolatedBuffer
+
+		return nil
+	}
+}

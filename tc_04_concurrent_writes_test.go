@@ -26,7 +26,6 @@ func TestConcurrentWrites(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	var wgProducers sync.WaitGroup

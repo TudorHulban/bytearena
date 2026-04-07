@@ -70,7 +70,7 @@ func Test_1_ContextCancel_DuringHeavyWrite(t *testing.T) {
 			)
 		}
 
-		ingestor.FlushArenaPerRegion(a)
+		ingestor.flushArenaPerRegion(a)
 
 		// When we hit target rotations, trigger shutdown
 		if rotations >= targetRotations && !shutdownStarted.Load() {

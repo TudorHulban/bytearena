@@ -20,7 +20,7 @@ import (
 // Those responsibilities belong to the consumer loop.
 
 // Copy regions and then one write.
-func (m *Ingestor) FlushArenaIsolatedBuffer(a *arena) {
+func (m *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 	if a == nil {
 		return
 	}
@@ -90,7 +90,9 @@ func (m *Ingestor) FlushArenaIsolatedBuffer(a *arena) {
 }
 
 // Multi-write.
-func (m *Ingestor) FlushArenaPerRegion(a *arena) {
+//
+// This is default flusher.
+func (m *Ingestor) flushArenaPerRegion(a *arena) {
 	if a == nil {
 		return
 	}

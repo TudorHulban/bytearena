@@ -65,7 +65,7 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 			}
 		}
 
-		ingestor.FlushArenaPerRegion(a)
+		ingestor.flushArenaPerRegion(a)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
