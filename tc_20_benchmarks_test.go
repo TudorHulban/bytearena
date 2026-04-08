@@ -351,7 +351,7 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_ioWriter_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	24615984	        42.88 ns/op	      76 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 

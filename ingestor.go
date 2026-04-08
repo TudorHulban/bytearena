@@ -33,21 +33,26 @@ type Ingestor struct {
 
 	chFlush chan struct{}
 
+	// Hot
 	// Pointer to the currently active arena.
 	// Producers read this atomically to know where to write.
 	active atomic.Pointer[arena]
+	_      [56]byte
 
 	// The two arenas used in double-buffer rotation.
 	arenaFirst  *arena
 	arenaSecond *arena
 
-	arenaSealThresholds []uint32 // precomputed
+	arenaSealThresholds [8]uint32 // precomputed
 
 	Registry ErrorsRegistry
 	Metrics  Metrics
 
+	// Hot
 	counterRequests atomic.Uint64
-	subRegions      [8]SubRegion
+	_               [56]byte
+
+	subRegions [8]SubRegion
 
 	// Size of each arena (capacity of Arena.Buf).
 	arenaSize      uint32
@@ -58,7 +63,10 @@ type Ingestor struct {
 	milisecondsTickInterval uint16
 	milisecondsUnblock      uint16
 
-	isStopped     atomic.Bool
+	// Hot
+	isStopped atomic.Bool
+	_         [63]byte
+
 	withTelemetry bool
 }
 

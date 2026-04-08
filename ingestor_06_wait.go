@@ -15,12 +15,10 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) error {
 	spin := 0
 
 	for writers.Load() != 0 {
-		// ✅ Check cancellation EVERY iteration
-		select {
-		case <-ctx.Done():
-			return ctx.Err() // context.DeadlineExceeded or Canceled
-
-		default:
+		// Check cancellation EVERY iteration.
+		// Use ctx.Err as faster than ctx.Done read.
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		// ✅ Adaptive backoff strategy

@@ -27,8 +27,8 @@ func NewSubRegions(arenaSize uint32) ([8]SubRegion, uint32) {
 	return regions, regionSize
 }
 
-func precomputeThresholds(subregions [8]SubRegion, sealPercentage uint32) []uint32 {
-	result := make([]uint32, len(subregions))
+func precomputeThresholds(subregions [8]SubRegion, sealPercentage uint32) [8]uint32 {
+	var result [8]uint32
 
 	for ix, subRegion := range subregions {
 		result[ix] = subRegion.Lower + ((subRegion.Upper - subRegion.Lower) * sealPercentage / 100)
