@@ -41,6 +41,8 @@ type Ingestor struct {
 	arenaFirst  *arena
 	arenaSecond *arena
 
+	arenaSealThresholds []uint32 // precomputed
+
 	Registry ErrorsRegistry
 	Metrics  Metrics
 
@@ -52,7 +54,6 @@ type Ingestor struct {
 	maxMessageSize uint32
 
 	arenaSealPercentage uint32
-	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
 
 	milisecondsTickInterval uint16
 	milisecondsUnblock      uint16
@@ -115,8 +116,11 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			telemetryObservableRollback = result.Metrics.IncrementRollback
 	}
 
-	// optimization - Precompute the seal threshold
-	result.arenaSealThreshold = int32((arenaSize * result.arenaSealPercentage) / 100) //nolint:gosec
+	// optimization - Precompute the subregions seal thresholds
+	result.arenaSealThresholds = precomputeThresholds(
+		result.subRegions,
+		result.arenaSealPercentage,
+	)
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)

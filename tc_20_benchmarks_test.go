@@ -23,7 +23,7 @@ const (
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16       66187720                18.41 ns/op           49 B/op          0 allocs/op
+// BenchmarkArena_ConstantPayload-16    	89981698	        13.60 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -87,7 +87,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_FormattedPayload-16      38152388                31.91 ns/op           54 B/op          0 allocs/op
+// BenchmarkArena_FormattedPayload-16    	46554699	        26.14 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -154,7 +154,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
-// BenchmarkIngestor_ioWriter_End2End-16    	55772686	        22.88 ns/op	        11.18 Gb/s	     108 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_End2End-16    	59860435	        21.82 ns/op	        11.73 Gb/s	      71 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -217,7 +217,7 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Parallel-16    	38522866	        32.56 ns/op	         7.832 Gb/s	      31 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel-16    	43349782	        29.27 ns/op	         8.732 Gb/s	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -285,7 +285,7 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Noop-16      76019983                16.53 ns/op             15.49 Gb/s            31 B/op          0 allocs/op
+// BenchmarkIngestor_ioWriter_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
@@ -351,7 +351,7 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	23528086	        43.67 ns/op	     107 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -394,18 +394,18 @@ func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena500K-16                 80722183                15.05 ns/op           16 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena500K-16                 58355823                19.93 ns/op           64 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena500K-16                25311709                44.98 ns/op          258 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena500K-16                8307751               138.8 ns/op          1024 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1M-16                   66011407                15.25 ns/op           16 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1M-16                   55029442                21.47 ns/op           64 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1M-16                  23031651                51.09 ns/op          256 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1M-16                  9415101               126.0 ns/op          1024 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena2M-16                   68266269                15.11 ns/op           15 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena2M-16                   62682998                17.06 ns/op           63 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena2M-16                  34149261                39.70 ns/op          256 B/op          0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena2M-16                  7623558               152.8 ns/op          1023 B/op          0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena500K-16         	87050940	        12.96 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena500K-16         	83347240	        13.95 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena500K-16        	65489949	        18.42 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena500K-16       	34579744	        31.49 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena1M-16           	90196822	        12.94 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena1M-16           	81967728	        14.21 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena1M-16          	65769919	        18.56 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1M-16         	39526436	        30.01 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg16_arena2M-16           	90564499	        12.60 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg64_arena2M-16           	85387354	        13.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg256_arena2M-16          	58958144	        20.44 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/size_msg1024_arena2M-16         	42288590	        28.39 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	sizesMessage := []int{16, 64, 256, 1024}
 	sizesArena := []Size{Size500K, Size1M, Size2M}
