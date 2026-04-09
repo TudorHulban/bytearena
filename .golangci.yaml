@@ -143,6 +143,9 @@ linters:
             - disableChecksOnTypes
             - disableChecksOnConstants
 
+        - name: filename-format
+          disabled: true
+
         - name: max-public-structs
           disabled: true
 

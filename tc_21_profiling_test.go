@@ -38,11 +38,14 @@ import (
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem
 
-// BenchmarkIngestor_Noop_Parallel-16    	29518020	        42.76 ns/op	      31 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel-16    	32187890	        39.11 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
-	ingestor, err := NewIngestor(Size4M(), &writer)
+	ingestor, err := NewIngestor(
+		Size4M(),
+		&writer,
+	)
 	require.NoError(b, err)
 	require.NotNil(b, ingestor)
 
@@ -82,7 +85,7 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_WriteOnly_FastPath$' -benchmem
 
-// BenchmarkIngestor_Noop_WriteOnly_FastPath-16            86346526                13.33 ns/op           32 B/op          0 allocs/op
+// BenchmarkIngestor_Noop_WriteOnly_FastPath-16    	89049547	        12.11 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 	writer := helpers.NoopWriter{}
 	ingestor, _ := NewIngestor(Size4M(), &writer)
@@ -122,30 +125,6 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel_Custom$' -benchmem
 
-// P=1 (2 goroutines total):
-// ├─ Writer: CAS succeeds ~95% of first try
-// ├─ Consumer: Updates cursors independently most of the time
-// └─ Result: ~13ns (near hardware floor)
-
-// P=2 (3 goroutines total):
-// ├─ Writer A: CAS succeeds ~50% first try
-// ├─ Writer B: CAS succeeds ~50% first try
-// ├─ Consumer: Still updating same cache lines
-// └─ Result: ~62ns (cache-line bouncing + retries)
-
-// P=6 (7 goroutines total):
-// ├─ All writers: Spend most time spinning/waiting
-// ├─ CAS success rate per attempt: ~15%
-// ├─ But: Only ONE writer does useful work per cycle anyway
-// └─ Result: ~82ns (saturation — adding more writers doesn't hurt much more)
-
-// Base write cost: ~14 ns
-// + 0.28 extra CAS × ~80 ns cache bounce = ~22 ns
-// + Memory barriers × 3 goroutines = ~30 ns
-// + Scheduler jitter = ~10 ns
-// ─────────────────────────────
-// Total: ~76 ns  ← Matches 79.67 ns!
-
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16            77928956                15.35 ns/op              1.000 CAS/op         32 B/op          0 allocs/op
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16            15718856                74.80 ns/op              1.000 CAS/op         32 B/op          0 allocs/op
@@ -154,10 +133,10 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 
 // without CAS tracking
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	75622957	        14.92 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	17937549	        64.45 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	21667705	        55.95 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	30343608	        39.88 ns/op	         0 CAS/op	      32 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	90904914	        13.04 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	19169032	        62.79 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	22707710	        54.67 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	32791422	        38.33 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 	noP := []int{1, 2, 6, 12}
 

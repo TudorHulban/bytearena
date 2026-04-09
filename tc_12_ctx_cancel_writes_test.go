@@ -292,7 +292,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 	ingestor.flusher = func(a *arena) {
 		flusherCallCount.Add(1)
 
-		_, total := a.getLoadValues()
+		_, total := a.getSubregionLoads()
 
 		t.Logf(
 			"Flusher called with %d bytes",

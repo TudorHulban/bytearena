@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// memory fieldalignment is entirely ignorant of cache lines.
+// It has one job: minimize the GC pointer scan range ("pointer bytes"),
+// which is the span from offset 0 to the last pointer-containing field.
+// It achieves this by packing all pointer fields contiguously with zero gaps.
+// The [56]byte pad between active and the cold pointer block is what it is complaining about.
+// The gap inflates the GC bitmap by 56 bytes even though it contains no pointers.
+
 // 1. The Double-Buffer "Handshake"
 // By having arenaFirst and arenaSecond, the system can allow a Producer to keep writing at full speed to one buffer
 // while the Consumer (the flusher) writes the other buffer to the io.Writer.
@@ -24,41 +31,51 @@ import (
 
 // Ingestor owns the two arenas and coordinates which one is active.
 // It also handles the rotation and flush on context cancellation.
-type Ingestor struct {
+type Ingestor struct { //nolint:govet
+	// ── Cache line 0 ─────────────────────────────── Hot ──
+	// Producers read this atomically on every write.
+	active atomic.Pointer[arena]
+	_      [56]byte
+
+	// ── Cache line 1 ─────────────────────────────── Hot ──
+	counterRequests atomic.Uint64
+	_               [56]byte
+
+	// ── Cache line 2 ─────────────────────────────── Hot ──
+	// atomic.Bool is backed by uint32 (4 B); withTelemetry
+	// is read in the same hot path, so it shares this line.
+	isStopped atomic.Bool
+
+	// Allocate isolated buffer (no memory aliasing).
+	// Used with WithIsolatedBufferFlusher.
+	flushScratch []byte // 24 bytes
+
+	withTelemetry bool
+	_             [35]byte // should be 59 if moving flushScratch to own cache line
+
+	// ── Cache line 3 ─────────────────────────── Cold / IO ──
+	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
 	writer          io.Writer
 	writerTelemetry io.Writer
 	writerErrors    io.Writer
+	flusher         func(a *arena)
+	chFlush         chan struct{}
 
-	flusher func(a *arena)
-
-	chFlush chan struct{}
-
-	// Pointer to the currently active arena.
-	// Producers read this atomically to know where to write.
-	active atomic.Pointer[arena]
-
-	// The two arenas used in double-buffer rotation.
-	arenaFirst  *arena
-	arenaSecond *arena
-
-	Registry ErrorsRegistry
-	Metrics  Metrics
-
-	counterRequests atomic.Uint64
-	subRegions      [8]SubRegion
-
-	// Size of each arena (capacity of Arena.Buf).
-	arenaSize      uint32
-	maxMessageSize uint32
-
-	arenaSealPercentage uint32
-	arenaSealThreshold  int32 // precomputed: (arenaSize * sealPct) / 100
-
+	// ── Cache line 4 ──────────────────────── Cold / Arena ──
+	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
+	arenaFirst              *arena
+	arenaSecond             *arena
+	arenaSealThresholds     [8]uint32
+	arenaSize               uint32
+	maxMessageSize          uint32
+	arenaSealPercentage     uint32
 	milisecondsTickInterval uint16
 	milisecondsUnblock      uint16
 
-	isStopped     atomic.Bool
-	withTelemetry bool
+	// ── Cache line 5+ ─────────────────────────────── Cold ──
+	Registry   ErrorsRegistry
+	Metrics    Metrics
+	subRegions [8]SubRegion
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -115,8 +132,11 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 			telemetryObservableRollback = result.Metrics.IncrementRollback
 	}
 
-	// optimization - Precompute the seal threshold
-	result.arenaSealThreshold = int32((arenaSize * result.arenaSealPercentage) / 100) //nolint:gosec
+	// optimization - Precompute the subregions seal thresholds
+	result.arenaSealThresholds = precomputeThresholds(
+		result.subRegions,
+		result.arenaSealPercentage,
+	)
 
 	// Set active arena to a0.
 	result.active.Store(result.arenaFirst)

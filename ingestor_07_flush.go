@@ -45,8 +45,10 @@ func (m *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		return
 	}
 
-	// Allocate isolated buffer (no memory aliasing).
-	isolatedBuffer := make([]byte, 0, totalUsed)
+	m.flushScratch = m.flushScratch[:0]
+	if cap(m.flushScratch) < int(totalUsed) {
+		m.flushScratch = make([]byte, 0, totalUsed)
+	}
 
 	// Copy each sub-region's written slice in order.
 	for ix := range m.subRegions {
@@ -67,12 +69,12 @@ func (m *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		}
 
 		if start < end {
-			isolatedBuffer = append(isolatedBuffer, a.buf[start:end]...)
+			m.flushScratch = append(m.flushScratch, a.buf[start:end]...)
 		}
 	}
 
-	for len(isolatedBuffer) > 0 {
-		bytesWritten, errWrite := m.writer.Write(isolatedBuffer)
+	for len(m.flushScratch) > 0 {
+		bytesWritten, errWrite := m.writer.Write(m.flushScratch)
 		if errWrite != nil {
 			m.Registry.loadError(errWrite)
 
@@ -85,7 +87,7 @@ func (m *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 			return
 		}
 
-		isolatedBuffer = isolatedBuffer[bytesWritten:]
+		m.flushScratch = m.flushScratch[bytesWritten:]
 	}
 }
 
