@@ -9,7 +9,6 @@ var (
 
 	ErrWriteMessageTooLarge = errors.New("write: message too large")
 	ErrWriteShuttingDown    = errors.New("write: shutting down")
-	ErrWriteBackpressure    = errors.New("write: backpressure")
 
 	ErrWriterNoProgress  = errors.New("writer: no progress")
 	ErrDroppedSealedData = errors.New("droped: sealed arena data")
@@ -24,7 +23,6 @@ const (
 
 	TErrWriteMessageTooLarge // Consumer too slow
 	TErrWriteShuttingDown    // Catch-all
-	TErrWriteBackpressure
 
 	TErrDeadlineExceeded
 
@@ -42,7 +40,6 @@ var errorTypeNames = [maxErrorTypes]string{
 
 	TErrWriteMessageTooLarge: "message_too_large",
 	TErrWriteShuttingDown:    "shutting_down",
-	TErrWriteBackpressure:    "backpressure",
 
 	TErrDeadlineExceeded: "deadline_exceeded",
 

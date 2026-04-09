@@ -1,6 +1,8 @@
 package bytearena
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // reserveBytes attempts to atomically reserve n bytes within [lower, upper)
 // using the provided cursor. Returns the reserved offset or an error.
@@ -26,6 +28,7 @@ func (*Ingestor) reserveBytes(cursor *atomic.Uint32, toReserve uint32, lower, up
 			return cur, nil //nolint:gosec
 		}
 
-		// CAS failed: retry in next iteration.
+		// CAS failed: retry in next iteration (after pause).
+		// helpers.Pause(1)
 	}
 }

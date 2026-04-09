@@ -5,8 +5,6 @@ type SubRegion struct {
 	Upper uint32
 }
 
-var SubRegions [8]SubRegion
-
 // NewSubRegions partitions the arena into 8 contiguous sub-regions.
 // Last region absorbs any remainder if arenaSize % 8 != 0.
 func NewSubRegions(arenaSize uint32) ([8]SubRegion, uint32) {

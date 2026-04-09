@@ -21,6 +21,12 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) error {
 			return ctx.Err()
 		}
 
+		// select {
+		// case <-ctx.Done():
+		// 	return ctx.Err()
+		// default:
+		// }
+
 		// ✅ Adaptive backoff strategy
 		switch {
 		case spin < 20:

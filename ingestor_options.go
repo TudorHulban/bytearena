@@ -29,7 +29,7 @@ func WithTickMiliseconds(interval uint16) Options {
 			return errors.New("tick value cannot be zero")
 		}
 
-		i.milisecondsTickInterval = interval
+		i.millisecondsTickInterval = interval
 
 		return nil
 	}
@@ -41,7 +41,7 @@ func WithUnblockMiliseconds(interval uint16) Options {
 			return errors.New("unblock flush value cannot be zero")
 		}
 
-		i.milisecondsUnblock = interval
+		i.millisecondsUnblock = interval
 
 		return nil
 	}

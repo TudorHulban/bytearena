@@ -63,14 +63,14 @@ type Ingestor struct { //nolint:govet
 
 	// ── Cache line 4 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
-	arenaFirst              *arena
-	arenaSecond             *arena
-	arenaSealThresholds     [8]uint32
-	arenaSize               uint32
-	maxMessageSize          uint32
-	arenaSealPercentage     uint32
-	milisecondsTickInterval uint16
-	milisecondsUnblock      uint16
+	arenaFirst               *arena
+	arenaSecond              *arena
+	arenaSealThresholds      [8]uint32
+	arenaSize                uint32
+	maxMessageSize           uint32
+	arenaSealPercentage      uint32
+	millisecondsTickInterval uint16
+	millisecondsUnblock      uint16
 
 	// ── Cache line 5+ ─────────────────────────────── Cold ──
 	Registry   ErrorsRegistry
@@ -98,19 +98,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		arenaSize:      arenaSize,
 		maxMessageSize: regionSize,
 
-		arenaSealPercentage:     90,
-		milisecondsTickInterval: 50,
-		milisecondsUnblock:      50,
-	}
-
-	for ix := range result.subRegions {
-		result.
-			arenaFirst.
-			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
-
-		result.
-			arenaSecond.
-			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
+		arenaSealPercentage:      90,
+		millisecondsTickInterval: 50,
+		millisecondsUnblock:      50,
 	}
 
 	result.flusher = result.flushArenaPerRegion
@@ -167,7 +157,7 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (m *Ingestor) consumerLoop(ctx context.Context) {
 	ticker := time.NewTicker(
-		time.Duration(m.milisecondsTickInterval) * time.Millisecond,
+		time.Duration(m.millisecondsTickInterval) * time.Millisecond,
 	)
 	defer ticker.Stop()
 

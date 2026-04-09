@@ -29,11 +29,12 @@ import (
 // go test -run=^$ -bench=BenchmarkIngestor_Noop_Parallel -cpuprofile=cpu.prof -parallel=16
 
 // # Memory profile
-// go test -run=^$ -bench=BenchmarkIngestor_Noop_Parallel \
-//   -memprofile=mem.prof -parallelism=16
+// go test -run=^$ -bench=BenchmarkIngestor_Noop_Parallel -memprofile=mem.prof -parallelism=16
 
 // # Analyze
 // go tool pprof -top cpu.prof
+// go tool pprof -pdf cpu.prof > cpu.pdf
+
 // go tool pprof -top -alloc_space mem.prof
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem

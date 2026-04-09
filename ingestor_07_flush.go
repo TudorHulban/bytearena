@@ -135,7 +135,10 @@ func (m *Ingestor) flushArenaPerRegion(a *arena) {
 
 // flushOnShutdown flushes both arenas best-effort.
 func (m *Ingestor) flushOnShutdown() {
-	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		time.Duration(m.millisecondsUnblock)*time.Millisecond,
+	)
 	defer cancel()
 
 	// First rotation: seal whatever is currently active (call it A).

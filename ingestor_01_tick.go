@@ -24,7 +24,7 @@ func (m *Ingestor) tick() {
 	// ✅ Create transient context with configurable timeout
 	ctxUnblockWriterWait, cancel := context.WithTimeout(
 		context.Background(),
-		time.Duration(m.milisecondsUnblock)*time.Millisecond,
+		time.Duration(m.millisecondsUnblock)*time.Millisecond,
 	)
 	defer cancel() // Always clean up resources
 

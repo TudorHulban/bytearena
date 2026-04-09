@@ -59,7 +59,8 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 
 	arena := m.active.Load()
 	if arena == nil {
-		return WriteRegion{}, ErrWriteNoActiveArena
+		return WriteRegion{},
+			ErrWriteNoActiveArena
 	}
 
 	arena.Enter()
@@ -67,7 +68,8 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 	if m.active.Load() != arena {
 		arena.Leave()
 
-		return WriteRegion{}, ErrWriteActiveArenaMismatch
+		return WriteRegion{},
+			ErrWriteActiveArenaMismatch
 	}
 
 	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
