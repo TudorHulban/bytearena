@@ -44,9 +44,14 @@ type Ingestor struct { //nolint:govet
 	// ── Cache line 2 ─────────────────────────────── Hot ──
 	// atomic.Bool is backed by uint32 (4 B); withTelemetry
 	// is read in the same hot path, so it shares this line.
-	isStopped     atomic.Bool
+	isStopped atomic.Bool
+
+	// Allocate isolated buffer (no memory aliasing).
+	// Used with WithIsolatedBufferFlusher.
+	flushScratch []byte // 24 bytes
+
 	withTelemetry bool
-	_             [59]byte
+	_             [35]byte // should be 59 if moving flushScratch to own cache line
 
 	// ── Cache line 3 ─────────────────────────── Cold / IO ──
 	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.

@@ -27,7 +27,10 @@ const (
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(Size500K(), &writer)
+	ingestor, errCrIngestor := NewIngestor(
+		Size500K(),
+		&writer,
+	)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -91,7 +94,10 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(Size500K(), &writer)
+	ingestor, errCrIngestor := NewIngestor(
+		Size500K(),
+		&writer,
+	)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
@@ -221,7 +227,10 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
-	ingestor, err := NewIngestor(Size1M(), &writer)
+	ingestor, err := NewIngestor(
+		Size1M(),
+		&writer,
+	)
 	require.NoError(b, err)
 	require.NotNil(b, ingestor)
 
@@ -289,8 +298,8 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 	writer := helpers.NoopWriter{}
 
-	ingestor, err := NewIngestor(Size1M(), &writer)
-	require.NoError(b, err)
+	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
+	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -351,11 +360,15 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	24615984	        42.88 ns/op	      76 B/op	       0 allocs/op
+// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	33379717	        37.31 ns/op	      96 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
+	ingestor, errCrIngestor := NewIngestor(
+		Size2M(),
+		&writer,
+		WithIsolatedBufferFlusher(),
+	)
 	require.NoError(b, errCrIngestor)
 	require.NotNil(b, ingestor)
 
