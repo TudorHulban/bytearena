@@ -27,7 +27,7 @@ func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) error {
 		// default:
 		// }
 
-		// ✅ Adaptive backoff strategy
+		// Adaptive backoff strategy
 		switch {
 		case spin < 20:
 			helpers.Pause(1)

@@ -14,7 +14,7 @@ import (
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem -race
 
 // BenchmarkIngestor_ioWriter_Parallel-16    	41500706	        29.62 ns/op	         8.631 Gb/s	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
+func BenchmarkIngestor_Parallel(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
 	ingestor, _ := NewIngestor(

@@ -11,7 +11,7 @@ import (
 // "try once, rotate may have happened, try again" pattern.
 //
 // It does NOT loop indefinitely and does NOT block.
-func (m *Ingestor) tryWrite(n uint32) (WriteRegion, error) {
+func (m *Ingestor) tryWrite(n uint32) (writeRegion, error) {
 	// First attempt.
 	region, errWrite := m.beginWrite(n)
 	if errWrite == nil {
@@ -23,7 +23,7 @@ func (m *Ingestor) tryWrite(n uint32) (WriteRegion, error) {
 	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
 		m.Registry.Inc(TErrWriteMessageTooLarge)
 
-		return WriteRegion{}, errWrite
+		return writeRegion{}, errWrite
 	}
 
 	m.Registry.loadError(errWrite)
@@ -34,7 +34,7 @@ func (m *Ingestor) tryWrite(n uint32) (WriteRegion, error) {
 	if errWrite != nil {
 		m.Registry.loadError(errWrite)
 
-		return WriteRegion{}, errWrite
+		return writeRegion{}, errWrite
 	}
 
 	return region, errWrite
@@ -51,15 +51,15 @@ func (m *Ingestor) tryWrite(n uint32) (WriteRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
+func (m *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 	if toReserve > m.maxMessageSize {
-		return WriteRegion{},
+		return writeRegion{},
 			ErrWriteMessageTooLarge
 	}
 
 	arena := m.active.Load()
 	if arena == nil {
-		return WriteRegion{},
+		return writeRegion{},
 			ErrWriteNoActiveArena
 	}
 
@@ -68,7 +68,7 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 	if m.active.Load() != arena {
 		arena.Leave()
 
-		return WriteRegion{},
+		return writeRegion{},
 			ErrWriteActiveArenaMismatch
 	}
 
@@ -82,7 +82,7 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 		arena.Leave()
 		m.signalFlush()
 
-		return WriteRegion{},
+		return writeRegion{},
 			ErrWriteSubRegionFull
 	}
 
@@ -92,12 +92,12 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 		arena.Leave()
 		m.signalFlush()
 
-		return WriteRegion{},
+		return writeRegion{},
 			errReserve
 	}
 
 	// Success: return write handle
-	return WriteRegion{
+	return writeRegion{
 			arena:  arena,
 			offset: offset,
 			size:   toReserve,
@@ -111,7 +111,7 @@ func (m *Ingestor) beginWrite(toReserve uint32) (WriteRegion, error) {
 // The write function receives a byte slice of length n and must fill it.
 func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	var (
-		region      WriteRegion
+		region      writeRegion
 		errTryWrite error
 	)
 
