@@ -32,7 +32,7 @@ func (m *Ingestor) ReportMetrics() {
 	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
-func (m *Ingestor) ReportTelemetry(reporter Reporter) {
+func (m *Ingestor) ReportTelemetry(reporter IReporter) {
 	reporter.ReportDrops(
 		m.Registry.Snapshot(),
 	)

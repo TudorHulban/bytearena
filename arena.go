@@ -10,8 +10,8 @@ import (
 // If two atomic.Uint32 values are <64 bytes apart
 // in memory → cache-line contention → performance degradation
 
-// PaddedCursor wraps an atomic.Uint32 with cache-line padding
-type PaddedCursor struct {
+// paddedCursor wraps an atomic.Uint32 with cache-line padding
+type paddedCursor struct {
 	value atomic.Uint32
 	_     [60]byte // pad to 64 bytes (4 + 60 = 64)
 }
@@ -47,7 +47,7 @@ type arena struct { //nolint:govet
 	subRegions [8]subRegion
 
 	// Per-subregion CAS cursors: one atomic counter per shard
-	subRegionCursors [8]PaddedCursor
+	subRegionCursors [8]paddedCursor
 }
 
 func newArena(arenaSize uint32, subRegions [8]subRegion) *arena {

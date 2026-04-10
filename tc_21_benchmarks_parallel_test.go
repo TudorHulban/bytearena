@@ -2,7 +2,6 @@ package bytearena
 
 import (
 	"context"
-	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -83,11 +82,11 @@ func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
+// go test -run '^$' -bench '^BenchmarkIngestor_Parallel_BytesWritten$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	33379717	        37.31 ns/op	      96 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
+// BenchmarkIngestor_Parallel_BytesWritten-16    	33379717	        37.31 ns/op	      96 B/op	       0 allocs/op
+func BenchmarkIngestor_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, _ := NewIngestor(
@@ -128,58 +127,4 @@ func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
 		written.Load()*int64(len(payload)),
 		writer.TotalBytesWritten.Load(),
 	)
-}
-
-func BenchmarkIngestor_direct_Parallel(b *testing.B) {
-	writer := helpers.NoopWriter{}
-
-	ingestor, _ := NewIngestor(
-		Size2M(),
-		&writer,
-	)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	chIngestionEnd := ingestor.StartIngestion(ctx)
-
-	time.Sleep(10 * time.Millisecond) // warmup
-
-	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
-	b.ReportAllocs()
-	b.SetParallelism(16)
-	b.ResetTimer()
-
-	var noErrors atomic.Int64
-
-	b.RunParallel(
-		func(pb *testing.PB) {
-			var arr [256]byte
-			buf := append(arr[:0], payload...)
-
-			for pb.Next() {
-				var region WriteRegion
-
-				for {
-					var errWrite error
-					region, errWrite = ingestor.tryWrite(uint32(len(buf)))
-					if errWrite == nil {
-						break
-					}
-					if errWrite != ErrWriteSubRegionFull {
-						b.Error(errWrite)
-						return
-					}
-					runtime.Gosched() // yield, consumer will rotate
-				}
-
-				copy(region.Buf(), buf)
-				ingestor.endWrite(region)
-			}
-		},
-	)
-
-	cancel()
-	<-chIngestionEnd
-
-	require.Zero(b, noErrors.Load())
 }
