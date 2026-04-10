@@ -337,7 +337,7 @@ func TestHammerWithOversizedMessages_Detailed(t *testing.T) {
 		for i, cursor := range cursors {
 			region := ingestor.subRegions[i]
 			if cursor >= region.Lower {
-				usedTotal += cursor - region.Lower
+				usedTotal = usedTotal + cursor - region.Lower
 			}
 		}
 
@@ -431,8 +431,8 @@ func TestHammerWithOversizedMessages_Detailed(t *testing.T) {
 	totalUsed := uint32(0)
 
 	for ix, metric := range metrics {
-		totalRollbacks += metric.rollbacks
-		totalUsed += metric.usedTotal
+		totalRollbacks = totalRollbacks + metric.rollbacks
+		totalUsed = totalUsed + metric.usedTotal
 
 		// ✅ Validate each of the 8 cursors against its subregion bounds
 		require.Len(t,

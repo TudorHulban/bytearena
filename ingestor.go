@@ -75,13 +75,13 @@ type Ingestor struct { //nolint:govet
 	// ── Cache line 5+ ─────────────────────────────── Cold ──
 	Registry   ErrorsRegistry
 	Metrics    Metrics
-	subRegions [8]SubRegion
+	subRegions [8]subRegion
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
-	subRegions, regionSize := NewSubRegions(arenaSize)
+	subRegions, regionSize := newSubRegions(arenaSize)
 
 	result := Ingestor{
 		writer:          w,

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,19 +19,16 @@ const (
 // All benchmarks were done on Rocky 10.
 
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem
-// go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkArena_ConstantPayload-16    	89981698	        13.60 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
-	writer := helpers.CountWriterNoBuffer{}
+	var writer helpers.CountWriterNoBuffer
 
-	ingestor, errCrIngestor := NewIngestor(
+	ingestor, _ := NewIngestor(
 		Size500K(),
 		&writer,
 	)
-	require.NoError(b, errCrIngestor)
-	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
@@ -87,19 +83,16 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 }
 
 // go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem
-// go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkArena_FormattedPayload-16    	46554699	        26.14 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
-	ingestor, errCrIngestor := NewIngestor(
+	ingestor, _ := NewIngestor(
 		Size500K(),
 		&writer,
 	)
-	require.NoError(b, errCrIngestor)
-	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
@@ -159,14 +152,15 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 }
 
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem -race
+
 // BenchmarkIngestor_ioWriter_End2End-16    	59860435	        21.82 ns/op	        11.73 Gb/s	      71 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
-	ingestor, err := NewIngestor(Size1M(), &writer)
-	require.NoError(b, err)
-	require.NotNil(b, ingestor)
+	ingestor, _ := NewIngestor(
+		Size1M(),
+		&writer,
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
@@ -221,86 +215,14 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel$' -benchmem
-
-// BenchmarkIngestor_ioWriter_Parallel-16    	43349782	        29.27 ns/op	         8.732 Gb/s	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_Parallel(b *testing.B) {
-	writer := helpers.CountWriterNoBuffer{}
-
-	ingestor, err := NewIngestor(
-		Size1M(),
-		&writer,
-	)
-	require.NoError(b, err)
-	require.NotNil(b, ingestor)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	chIngestionEnd := ingestor.StartIngestion(ctx)
-
-	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
-
-	b.ReportAllocs()
-	b.SetParallelism(16)
-
-	start := time.Now()
-
-	b.RunParallel(
-		func(pb *testing.PB) {
-			for pb.Next() {
-				_, _ = ingestor.Write(payload)
-			}
-		},
-	)
-
-	stableTS, ok := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[uint64]{
-			InitialValue: writer.TotalBytesWritten.Load(),
-
-			GetCurrentValue: func() uint64 {
-				return writer.TotalBytesWritten.Load()
-			},
-
-			PauseFn:         func() { helpers.Pause(1) },
-			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond, // or the measured Pause(30) duration
-
-			NumberStableSamples:  2,   // require 2 identical samples
-			MaximumNumberSamples: 100, // safety cap
-		},
-	)
-
-	var elapsed time.Duration
-
-	if ok {
-		elapsed = stableTS.Sub(start)
-	} else {
-		elapsed = time.Since(start)
-	}
-
-	// Override the default ns/op with true end-to-end ingestion time.
-	b.ReportMetric(
-		float64(elapsed.Nanoseconds())/float64(b.N),
-		"ns/op",
-	)
-
-	bytesWritten := float64(writer.TotalBytesWritten.Load())
-	seconds := float64(elapsed.Nanoseconds()) / 1e9
-	gbps := (bytesWritten * 8) / (seconds * 1e9)
-
-	b.ReportMetric(gbps, "Gb/s") // Gb/s throughput
-
-	cancel()
-	<-chIngestionEnd
-}
-
 // go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
 
 // BenchmarkIngestor_ioWriter_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
-	writer := helpers.NoopWriter{}
-
-	ingestor, errCrIngestor := NewIngestor(Size1M(), &writer)
-	require.NoError(b, errCrIngestor)
-	require.NotNil(b, ingestor)
+	ingestor, _ := NewIngestor(
+		Size1M(),
+		&helpers.NoopWriter{},
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
@@ -355,53 +277,6 @@ func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
 
 	cancel()
 	<-chIngestionEnd
-}
-
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Parallel_BytesWritten$' -benchmem -race
-
-// BenchmarkIngestor_ioWriter_Parallel_BytesWritten-16    	33379717	        37.31 ns/op	      96 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_Parallel_BytesWritten(b *testing.B) {
-	writer := helpers.CountWriterWithBuffer{}
-
-	ingestor, errCrIngestor := NewIngestor(
-		Size2M(),
-		&writer,
-		WithIsolatedBufferFlusher(),
-	)
-	require.NoError(b, errCrIngestor)
-	require.NotNil(b, ingestor)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	chIngestionEnd := ingestor.StartIngestion(ctx)
-
-	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
-	b.ReportAllocs()
-	b.SetParallelism(16)
-	b.ResetTimer()
-
-	var written atomic.Int64
-
-	b.RunParallel(
-		func(pb *testing.PB) {
-			for pb.Next() {
-				if _, errWrite := ingestor.Write(payload); errWrite == nil {
-					written.Add(1)
-				}
-			}
-		},
-	)
-
-	cancel()
-	<-chIngestionEnd
-
-	b.Log(written.Load())
-
-	require.EqualValues(b,
-		writer.TotalBytesWritten.Load(),
-		written.Load()*int64(len(payload)),
-	)
 }
 
 // go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem

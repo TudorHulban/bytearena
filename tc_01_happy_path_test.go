@@ -62,7 +62,6 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := "hi!"
@@ -85,8 +84,6 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 	)
 
 	cancel()
-
-	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
 	require.True(t,
@@ -102,7 +99,6 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := "hi!"
@@ -121,8 +117,6 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 	)
 
 	cancel()
-
-	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
 	require.True(t,
@@ -134,12 +128,12 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	var writer bytes.Buffer
 
 	// Use functional option if available, or ensure same-package test
-	ingestor, err := NewIngestor(
+	ingestor, errCrIngestor := NewIngestor(
 		_Size1K,
 		&writer,
 		WithTickMiliseconds(1),
 	)
-	require.NoError(t, err)
+	require.NoError(t, errCrIngestor)
 
 	// Track flush invocation
 	flusherCalled := atomic.Bool{}
@@ -153,7 +147,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	chEnd := ingestor.StartIngestion(ctx)
+	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	payload := make([]byte, _Size1K/len(ingestor.subRegions))
 	copy(payload, "force seal")
@@ -175,7 +169,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	cancel()
 
 	select {
-	case <-chEnd:
+	case <-chIngestionEnd:
 	case <-time.After(400 * time.Millisecond):
 		t.Fatal("Ingestion did not exit")
 	}
@@ -184,4 +178,38 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 		flusherCalled.Load(),
 		"custom flusher should have been invoked",
 	)
+}
+
+func TestTryWrite(t *testing.T) {
+	writer := bytes.Buffer{}
+
+	ingestor, errCrIngestor := NewIngestor(
+		Size100K(),
+		&writer,
+	)
+	require.NoError(t, errCrIngestor)
+	require.NotNil(t, ingestor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	payload := "xxx"
+
+	var arr [256]byte
+
+	buf := append(arr[:0], []byte(payload)...)
+
+	region, errWrite := ingestor.tryWrite(uint32(len(buf)))
+	require.NoError(t, errWrite)
+	require.NotZero(t, region)
+
+	copy(region.Buf(), buf)
+
+	// must happen before cancel — flushOnShutdown waits for writers
+	ingestor.endWrite(region)
+
+	cancel()
+	<-chIngestionEnd
+
+	require.Contains(t, writer.String(), payload)
 }

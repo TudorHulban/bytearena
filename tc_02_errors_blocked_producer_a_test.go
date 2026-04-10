@@ -49,7 +49,7 @@ func Test_BlockedProducer(t *testing.T) {
 	require.NoError(t, errWrite3)
 	require.Equal(t, len(payload3), bytesWritten3)
 
-	ingestor.EndWrite(region1)
+	ingestor.endWrite(region1)
 
 	phase1E1, phase1E2 := ingestor.GetArenaEpochs()
 

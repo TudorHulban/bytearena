@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
@@ -14,7 +13,7 @@ import (
 // 1. m.active.Load()                          // atomic pointer load
 // 2. arena.Enter()                            // atomic.Add(&numberWriters, 1)
 // 3. arena.cursor.Load() + CAS loop           // reservation with potential retries
-// 4. fn(region.Buf())                         // your copy() closure
+// 4. fn(region.Buf())                         // copy()
 // 5. defer m.EndWrite()                       // atomic.Add(&numberWriters, -1)
 
 // Writer:                          Consumer:
@@ -38,33 +37,29 @@ import (
 // go tool pprof -top -alloc_space mem.prof
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel$' -benchmem -race
 
-// BenchmarkIngestor_Noop_Parallel-16    	32187890	        39.11 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel-16      41988265                29.59 ns/op            0 B/op          0 allocs/op
 func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
-	writer := helpers.NoopWriter{}
-
-	ingestor, err := NewIngestor(
+	ingestor, _ := NewIngestor(
 		Size4M(),
-		&writer,
+		&helpers.NoopWriter{},
 	)
-	require.NoError(b, err)
-	require.NotNil(b, ingestor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	// Warmup: let consumer stabilize
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) //warmup
 
 	b.ReportAllocs()
 	b.SetParallelism(16)
 	b.ResetTimer()
 
-	var staticPayload [32]byte
-
 	b.RunParallel(
 		func(pb *testing.PB) {
 			for pb.Next() {
+				var staticPayload [32]byte
+
 				copy(
 					staticPayload[:],
 					[]byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
@@ -73,7 +68,7 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 				ingestor.write(
 					32,
 					func(dst []byte) {
-						copy(dst, staticPayload[:]) // array doesn't escape
+						copy(dst, staticPayload[:]) // array does not escape
 					},
 				)
 			}
@@ -88,22 +83,22 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 
 // BenchmarkIngestor_Noop_WriteOnly_FastPath-16    	89049547	        12.11 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
-	writer := helpers.NoopWriter{}
-	ingestor, _ := NewIngestor(Size4M(), &writer)
+	ingestor, _ := NewIngestor(
+		Size4M(),
+		&helpers.NoopWriter{},
+	)
 
-	// Start consumer so writes don't block
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
-	// Warmup: let consumer stabilize
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) // warmup
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	var staticPayload [32]byte
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		copy(
 			staticPayload[:],
 			[]byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
@@ -118,13 +113,11 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 	}
 
 	cancel()
-	// Don't wait for consumer to finish - we only measured writes
-
-	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 }
 
 // go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel_Custom$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_Noop_Parallel_Custom$' -benchmem -race
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
 // BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16            77928956                15.35 ns/op              1.000 CAS/op         32 B/op          0 allocs/op
@@ -145,8 +138,10 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 		b.Run(
 			fmt.Sprintf("parallel:%d", parallel),
 			func(b *testing.B) {
-				writer := helpers.NoopWriter{}
-				ingestor, _ := NewIngestor(Size4M(), &writer)
+				ingestor, _ := NewIngestor(
+					Size4M(),
+					&helpers.NoopWriter{},
+				)
 
 				ctx, cancel := context.WithCancel(context.Background())
 				chIngestionEnd := ingestor.StartIngestion(ctx)
@@ -160,6 +155,7 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 					b,
 					parallel,
 					b.N,
+
 					func() error {
 						var payload [32]byte
 

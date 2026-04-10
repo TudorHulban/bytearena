@@ -73,7 +73,7 @@ func SprintfInt(format string, a ...int) string {
 		if format[ix] == '%' && ix+1 < lengthFormat && format[ix+1] == 'd' && indexArguments < len(a) {
 			v := a[indexArguments]
 
-			lengthOutput += intLen(v)
+			lengthOutput = lengthOutput + intLen(v)
 			indexArguments++
 			ix++
 		} else {

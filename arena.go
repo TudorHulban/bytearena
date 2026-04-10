@@ -44,13 +44,13 @@ type arena struct { //nolint:govet
 	// subRegions holds the Lower/Upper bounds for each shard.
 	// Stored here so reset can restore cursors to their correct Lower values
 	// without the Ingestor passing them in on every call.
-	subRegions [8]SubRegion
+	subRegions [8]subRegion
 
 	// Per-subregion CAS cursors: one atomic counter per shard
 	subRegionCursors [8]PaddedCursor
 }
 
-func newArena(arenaSize uint32, subRegions [8]SubRegion) *arena {
+func newArena(arenaSize uint32, subRegions [8]subRegion) *arena {
 	result := arena{
 		buf:        make([]byte, arenaSize),
 		subRegions: subRegions,

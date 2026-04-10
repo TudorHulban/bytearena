@@ -114,7 +114,7 @@ func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 	}
 
 	// Step 3: attempt to write using stale region
-	defer ingestor.EndWrite(region)
+	defer ingestor.endWrite(region)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -163,7 +163,7 @@ func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
 	}
 
 	// Now THIS is real reuse
-	defer ingestor.EndWrite(region)
+	defer ingestor.endWrite(region)
 
 	buf := region.Buf()
 	for i := range buf {

@@ -4,14 +4,14 @@ import (
 	"runtime"
 )
 
-// TryWrite attempts BeginWrite once. If it fails, it reloads the active
+// tryWrite attempts beginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
 //
 // This is a convenience helper for callers who want a simple
 // "try once, rotate may have happened, try again" pattern.
 //
 // It does NOT loop indefinitely and does NOT block.
-func (m *Ingestor) TryWrite(n uint32) (WriteRegion, error) {
+func (m *Ingestor) tryWrite(n uint32) (WriteRegion, error) {
 	// First attempt.
 	region, errWrite := m.beginWrite(n)
 	if errWrite == nil {
@@ -121,7 +121,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	// b. reset it after flushing (staleArena.epoch bumps → spin exits)
 	staleArena := m.active.Load()
 
-	region, errTryWrite = m.TryWrite(n)
+	region, errTryWrite = m.tryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
@@ -167,7 +167,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	}
 
 	// Mark write complete.
-	defer m.EndWrite(region)
+	defer m.endWrite(region)
 
 	// Write into the reserved region.
 	fn(region.Buf())

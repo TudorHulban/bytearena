@@ -54,5 +54,5 @@ func TestContextCancelDuringWait(t *testing.T) {
 	}
 
 	// Clean up stuck producer
-	ingestor.EndWrite(region)
+	ingestor.endWrite(region)
 }

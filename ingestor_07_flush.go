@@ -38,7 +38,7 @@ func (m *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		}
 
 		used := cursorVal - lower
-		totalUsed += used
+		totalUsed = totalUsed + used
 	}
 
 	if totalUsed == 0 {
