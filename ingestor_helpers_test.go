@@ -10,13 +10,13 @@ import "bytes"
 //
 // Note: This assumes messages do not span subregion boundaries. For typical
 // small payloads (< region size), this is safe.
-func (m *Ingestor) getArenaData(a *arena) *bytes.Buffer {
+func (ing *Ingestor) getArenaData(a *arena) *bytes.Buffer {
 	cursors := a.getCursorValues()
 
 	var result bytes.Buffer
 
 	for i := range 8 {
-		region := m.subRegions[i]
+		region := ing.subRegions[i]
 		cursor := cursors[i]
 
 		// Skip empty subregions (cursor hasn't advanced from Lower bound)

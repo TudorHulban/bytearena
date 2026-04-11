@@ -10,13 +10,13 @@ import (
 // - rotates if needed
 // - drains writers
 // - flushes sealed arena
-func (m *Ingestor) tick() {
-	activeArena := m.active.Load()
-	if activeArena == nil || !m.shouldSeal(activeArena) {
+func (ing *Ingestor) tick() {
+	activeArena := ing.active.Load()
+	if activeArena == nil || !ing.shouldSeal(activeArena) {
 		return
 	}
 
-	sealedArena := m.rotate()
+	sealedArena := ing.rotate()
 	if sealedArena == nil {
 		return
 	}
@@ -24,13 +24,13 @@ func (m *Ingestor) tick() {
 	// ✅ Create transient context with configurable timeout
 	ctxUnblockWriterWait, cancel := context.WithTimeout(
 		context.Background(),
-		time.Duration(m.millisecondsUnblock)*time.Millisecond,
+		time.Duration(ing.millisecondsUnblock)*time.Millisecond,
 	)
 	defer cancel() // Always clean up resources
 
 	// ✅ Wait for writers with timeout + adaptive backoff
-	if errWait := m.waitForWritersCtx(ctxUnblockWriterWait, sealedArena); errWait != nil {
-		m.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
+	if errWait := ing.waitForWritersCtx(ctxUnblockWriterWait, sealedArena); errWait != nil {
+		ing.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
 
 		sealedArena.reset()
 
@@ -38,7 +38,7 @@ func (m *Ingestor) tick() {
 	}
 
 	// ✅ Safe to read: all writers finished
-	m.flusher(sealedArena)
+	ing.flusher(sealedArena)
 
 	sealedArena.reset()
 }

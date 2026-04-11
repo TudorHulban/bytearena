@@ -138,13 +138,13 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 // StartIngestion launches the consumer loop in a goroutine.
 // The caller provides the flush function, which receives the
 // raw bytes of each sealed arena.
-func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
+func (ing *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 	chIngestionEnd := make(chan struct{})
 
 	go func() {
 		defer close(chIngestionEnd)
 
-		m.consumerLoop(ctx)
+		ing.consumerLoop(ctx)
 	}()
 
 	return chIngestionEnd
@@ -155,9 +155,9 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 // flushes it, and resets it.
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
-func (m *Ingestor) consumerLoop(ctx context.Context) {
+func (ing *Ingestor) consumerLoop(ctx context.Context) {
 	ticker := time.NewTicker(
-		time.Duration(m.millisecondsTickInterval) * time.Millisecond,
+		time.Duration(ing.millisecondsTickInterval) * time.Millisecond,
 	)
 	defer ticker.Stop()
 
@@ -167,17 +167,17 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			m.isStopped.Store(true)
-			m.flushOnShutdown()
+			ing.isStopped.Store(true)
+			ing.flushOnShutdown()
 
 			return
 
 		case <-ticker.C:
-			m.tick()
+			ing.tick()
 
 			// consumerLoop gets a third case:
-		case <-m.chFlush:
-			m.tick() // same seal/wait/flush/reset as ticker path
+		case <-ing.chFlush:
+			ing.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
 }

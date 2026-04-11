@@ -1,4 +1,4 @@
-# Building a Lock-Free, Zero-Copy Log Ingestor in Go with Double-Buffered Sharded Arenas
+# Building a Lock-Free Log Ingestor in Go with Double-Buffered Sharded Arenas
 
 *How to absorb millions of writes per second without ever locking a mutex or pausing the world.*
 
@@ -28,7 +28,7 @@ An arena is just a large, pre-allocated `[]byte`. Nothing is heap-allocated at w
 
 The answer is a per-sub-region atomic cursor. Each goroutine calls a compare-and-swap (CAS) loop against the cursor for its assigned sub-region:
 
-```sh
+```text
 [cursor] ──CAS──► [cursor + n]
 ```
 
@@ -71,7 +71,7 @@ Contention across 8 cursors is ~8× lower than contention on a single cursor. Go
 
 Each sub-region occupies a contiguous slice of the arena buffer:
 
-```sh
+```text
 Arena buffer (e.g. 4 MB)
 ├── SubRegion 0  [0, 512K)       cursor₀
 ├── SubRegion 1  [512K, 1024K)   cursor₁
@@ -90,7 +90,7 @@ With a single arena, the consumer (the code that flushes to disk) has to pause a
 
 With two arenas, the roles rotate:
 
-```sh
+```text
 Time ──────────────────────────────────────────────────────►
 
 Arena A:  [fill] [fill] [fill] ──seal──► [drain] [reset]
@@ -99,7 +99,7 @@ Arena B:                        [fill]   [fill]  [fill] ──seal──►
 
 Producers always write into the **active** arena. The consumer seals it (by atomically swapping the active pointer to the other arena), waits for any in-flight writes to finish, flushes the sealed arena to the `io.Writer`, resets it, and it becomes the next arena to be sealed. The two roles leapfrog each other perpetually.
 
-The active arena pointer is an `atomic.Pointer[arena]` — a single CPU instruction to swap, with no mutex and no memory allocation.
+The active arena pointer is an `atomic.Pointer[arena]` — a single CPU instruction which is an atomic store (MOV + memory fence), with no mutex and no memory allocation.
 
 ---
 
@@ -127,7 +127,7 @@ if m.active.Load() != arena {
 
 ### Leave
 
-`numberWriters` is an `atomic.Int32` on its own cache line. The consumer's wait loop simply spins (with adaptive backoff) until it hits zero:
+`numberWriters` is an `atomic.Int32` on its own cache line. The consumer's wait is bounded by a configurable timeout (default 50 ms); if writers have not drained by then, the sealed data is dropped and the arena is reset.
 
 ```go
 for writers.Load() != 0 {
@@ -159,6 +159,8 @@ func (m *Ingestor) shouldSeal(a *arena) bool {
 }
 ```
 
+The ticker fires every 50 ms (can be set with `WithTickMilliseconds`) but does no work if shouldSeal returns false — a quiet arena with writes below the threshold sits undisturbed across many intervals. Only when at least one cursor crosses its watermark, or a rollback has been recorded, does the consumer rotate.
+
 Two signals trigger a seal:
 
 **Cursor threshold** — any sub-region cursor reaches a pre-computed watermark (default 90% of capacity). Thresholds are computed once at startup and stored as a plain `[8]uint32` array — no arithmetic at runtime.
@@ -174,7 +176,9 @@ default: // signal already pending
 }
 ```
 
-The consumer's `select` has a third case for this channel alongside the ticker and context done — so pressure from producers feeds back into flush timing without any synchronous coordination.
+The consumer's `select` has a third case for this channel alongside the ticker and context done — so pressure from producers feeds back into flush timing without any synchronous coordination.  
+
+When a sub-region is full, Write does not return ErrWriteSubRegionFull to the caller — that error is internal. Instead, the producer captures the current arena's epoch, then yields in a runtime.Gosched() loop until either the active pointer changes (consumer rotated) or the epoch increments (consumer reset the arena after flushing). Only then does it attempt one final (internal) `beginWrite`. This means back-pressure from a full arena is absorbed as scheduler yields inside the Write call, invisible to the caller but visible in latency — which is why benchmarks should measure end-to-end time rather than just reservation cost.
 
 ---
 
@@ -200,7 +204,7 @@ secondSealed := m.rotate()   // seal whatever just became active (B)
 m.active.Store(nil)          // close the door: no new producers enter
 ```
 
-The double rotation ensures that any producer who was bumped from A during the first rotation and retried into B is also captured before the door closes. Setting active to `nil` causes all subsequent `beginWrite` calls to return `ErrWriteNoActiveArena` immediately. Then both sealed arenas are drained in order: B first (most recent writes), A second.
+The double rotation ensures that any producer who was bumped from A during the first rotation and retried into B is also captured before the door closes. Setting active to `nil` causes all subsequent `beginWrite` calls to return `ErrWriteNoActiveArena` immediately. The two sealed arenas are drained in sequence: the second-sealed arena is flushed first, because any producer bumped from the first rotation may have retried into it and could still be draining — its writers must be waited on before reading its contents. The first-sealed arena follows.
 
 ---
 
@@ -209,7 +213,7 @@ The double rotation ensures that any producer who was bumped from A during the f
 - **Zero allocation on the write path.** No `new`, no `make`, no interface boxing after initialization.
 - **No mutexes in the critical path.** CAS + atomic swap everywhere.
 - **False-sharing eliminated.** Every hot atomic sits alone on a 64-byte cache line.
-- **Backpressure without blocking.** Producers get a typed error (`ErrWriteSubRegionFull`) and can spin, retry, or drop — the choice is theirs.
+- **Backpressure without blocking.** A full arena yields inside Write via runtime.Gosched() until the consumer rotates — no error surfaces to the caller, no goroutine parks, no mutex blocks.
 - **Configurable flush strategy.** One `io.Writer` interface; swap between per-region and isolated-buffer flushers with an option.
 - **Structured telemetry.** Every error type has a padded atomic counter in the `ErrorsRegistry`; a `Snapshot()` call harvests and resets all counts atomically.
 
@@ -222,7 +226,7 @@ The double rotation ensures that any producer who was bumped from A during the f
 - Parallelism is fixed to 16 goroutines to simulate high contention independent of CPU core count.
 - Rocky 10 was used to run the benchmark.
 
-BenchmarkIngestor_Parallel-16    	41500706	        29.62 ns/op	         8.631 Gb/s	       0 B/op	
+BenchmarkIngestor_Parallel-16    	41500706	        29.62 ns/op	         8.631 Gb/s	       0 B/op
 
 ```go
 func BenchmarkIngestor_Parallel(b *testing.B) {
@@ -282,9 +286,9 @@ This pattern introduces significant complexity and should only be used once cont
 
 ## Closing Thought
 
-The design demonstrates something worth internalizing: **contention is not inevitable, it is a design choice**. Every time you reach for a mutex, ask whether the problem could instead be solved by partitioning ownership — in space (shards), in time (double buffering), or in role (single producer vs. single consumer). Often it can, and the result is a system that scales linearly with cores rather than collapsing under them.
+The design demonstrates something worth internalizing: **contention is not inevitable, it is a design choice**. Every time you reach for a mutex, ask whether the problem could instead be solved by partitioning ownership — in space (shards), in time (double buffering), or in role (multiple producers vs. single consumer). Often it can, and the result is a system that scales linearly with cores rather than collapsing under them.
 
-The source is available on GitHub. Benchmarks, test helpers (including a suite of adversarial `io.Writer` implementations), and the assembly-level `PAUSE` instruction back-off are all included.
+The source is available on GitHub at [github.com/TudorHulban/bytearena](https://github.com/TudorHulban/bytearena). Benchmarks, test helpers (including a suite of adversarial `io.Writer` implementations), and helpers are all included.
 
 ---
 

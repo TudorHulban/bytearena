@@ -11,9 +11,9 @@ import (
 // "try once, rotate may have happened, try again" pattern.
 //
 // It does NOT loop indefinitely and does NOT block.
-func (m *Ingestor) tryWrite(n uint32) (writeRegion, error) {
+func (ing *Ingestor) tryWrite(n uint32) (writeRegion, error) {
 	// First attempt.
-	region, errWrite := m.beginWrite(n)
+	region, errWrite := ing.beginWrite(n)
 	if errWrite == nil {
 		return region, nil
 	}
@@ -21,18 +21,18 @@ func (m *Ingestor) tryWrite(n uint32) (writeRegion, error) {
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
 	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
-		m.Registry.Inc(TErrWriteMessageTooLarge)
+		ing.Registry.Inc(TErrWriteMessageTooLarge)
 
 		return writeRegion{}, errWrite
 	}
 
-	m.Registry.loadError(errWrite)
+	ing.Registry.loadError(errWrite)
 
 	// Reload active arena — rotation may have occurred.
 	// Second attempt.
-	region, errWrite = m.beginWrite(n)
+	region, errWrite = ing.beginWrite(n)
 	if errWrite != nil {
-		m.Registry.loadError(errWrite)
+		ing.Registry.loadError(errWrite)
 
 		return writeRegion{}, errWrite
 	}
@@ -51,13 +51,13 @@ func (m *Ingestor) tryWrite(n uint32) (writeRegion, error) {
 //   - writers-in-flight is decremented
 //   - reservation if reversed
 //   - rollback counter is incremented
-func (m *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
-	if toReserve > m.maxMessageSize {
+func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
+	if toReserve > ing.maxMessageSize {
 		return writeRegion{},
 			ErrWriteMessageTooLarge
 	}
 
-	arena := m.active.Load()
+	arena := ing.active.Load()
 	if arena == nil {
 		return writeRegion{},
 			ErrWriteNoActiveArena
@@ -65,7 +65,7 @@ func (m *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 
 	arena.Enter()
 
-	if m.active.Load() != arena {
+	if ing.active.Load() != arena {
 		arena.Leave()
 
 		return writeRegion{},
@@ -73,24 +73,24 @@ func (m *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 	}
 
 	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
-	regionIdx := m.counterRequests.Add(1) & 7
-	subRegion := m.subRegions[regionIdx]
+	regionIdx := ing.counterRequests.Add(1) & 7
+	subRegion := ing.subRegions[regionIdx]
 
 	// Fast-fail if message doesn't fit this sub-region
 	if toReserve > (subRegion.Upper - subRegion.Lower) {
 		arena.AddRollback()
 		arena.Leave()
-		m.signalFlush()
+		ing.signalFlush()
 
 		return writeRegion{},
 			ErrWriteSubRegionFull
 	}
 
-	offset, errReserve := m.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
+	offset, errReserve := ing.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
 	if errReserve != nil {
 		arena.AddRollback()
 		arena.Leave()
-		m.signalFlush()
+		ing.signalFlush()
 
 		return writeRegion{},
 			errReserve
@@ -109,7 +109,7 @@ func (m *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 // The caller provides a function that writes into the reserved buffer.
 //
 // The write function receives a byte slice of length n and must fill it.
-func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
+func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	var (
 		region      writeRegion
 		errTryWrite error
@@ -119,17 +119,17 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	// The consumer must either:
 	// a. rotate away from it (m.active != staleArena → spin exits), or
 	// b. reset it after flushing (staleArena.epoch bumps → spin exits)
-	staleArena := m.active.Load()
+	staleArena := ing.active.Load()
 
-	region, errTryWrite = m.tryWrite(n)
+	region, errTryWrite = ing.tryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
-		if staleArena == nil || m.isStopped.Load() {
-			m.Registry.Inc(TErrWriteShuttingDown)
+		if staleArena == nil || ing.isStopped.Load() {
+			ing.Registry.Inc(TErrWriteShuttingDown)
 
 			return ErrWriteShuttingDown
 		}
@@ -140,9 +140,9 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		// When the consumer recycles arena A (after the double rotation), reset() bumps stale.epoch,
 		// the second condition goes false,
 		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
-		for m.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
-			if m.isStopped.Load() { // ← consumer is gone, bail out
-				m.Registry.Inc(TErrWriteShuttingDown)
+		for ing.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
+			if ing.isStopped.Load() { // ← consumer is gone, bail out
+				ing.Registry.Inc(TErrWriteShuttingDown)
 
 				return ErrWriteShuttingDown
 			}
@@ -152,7 +152,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 		var errWrite error
 
-		region, errWrite = m.beginWrite(n)
+		region, errWrite = ing.beginWrite(n)
 		if errWrite != nil {
 			return errWrite
 		}
@@ -167,7 +167,7 @@ func (m *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	}
 
 	// Mark write complete.
-	defer m.endWrite(region)
+	defer ing.endWrite(region)
 
 	// Write into the reserved region.
 	fn(region.Buf())

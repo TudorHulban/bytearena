@@ -2,7 +2,7 @@ package bytearena
 
 import "encoding/json"
 
-func (m *Ingestor) ReportDrops(drops map[string]uint64) {
+func (ing *Ingestor) ReportDrops(drops map[string]uint64) {
 	if len(drops) == 0 {
 		return
 	}
@@ -15,26 +15,26 @@ func (m *Ingestor) ReportDrops(drops map[string]uint64) {
 		},
 	)
 
-	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
+	_, _ = ing.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
-func (m *Ingestor) ReportMetrics() {
+func (ing *Ingestor) ReportMetrics() {
 	logEntry, _ := json.Marshal(
 		map[string]any{
 			"level":        "warn",
 			"msg":          "ingestor_metrics",
-			"rollbacks":    m.Metrics.NumberRollbacks.Swap(0),
-			"epoch_arena1": m.arenaFirst.epoch.Load(),
-			"epoch_arena2": m.arenaSecond.epoch.Load(),
+			"rollbacks":    ing.Metrics.NumberRollbacks.Swap(0),
+			"epoch_arena1": ing.arenaFirst.epoch.Load(),
+			"epoch_arena2": ing.arenaSecond.epoch.Load(),
 		},
 	)
 
-	_, _ = m.writerTelemetry.Write(append(logEntry, '\n'))
+	_, _ = ing.writerTelemetry.Write(append(logEntry, '\n'))
 }
 
-func (m *Ingestor) ReportTelemetry(reporter IReporter) {
+func (ing *Ingestor) ReportTelemetry(reporter IReporter) {
 	reporter.ReportDrops(
-		m.Registry.Snapshot(),
+		ing.Registry.Snapshot(),
 	)
 
 	reporter.ReportMetrics()
