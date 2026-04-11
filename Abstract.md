@@ -1,4 +1,4 @@
-# Building a Lock-Free Log Ingestor in Go with Double-Buffered Sharded Arenas
+# Building a Log Ingestor in Go with Double-Buffered Sharded Arenas
 
 *How to absorb millions of writes per second without ever locking a mutex or pausing the world.*
 
@@ -99,7 +99,7 @@ Arena B:                        [fill]   [fill]  [fill] ──seal──►
 
 Producers always write into the **active** arena. The consumer seals it (by atomically swapping the active pointer to the other arena), waits for any in-flight writes to finish, flushes the sealed arena to the `io.Writer`, resets it, and it becomes the next arena to be sealed. The two roles leapfrog each other perpetually.
 
-The active arena pointer is an `atomic.Pointer[arena]` — a single CPU instruction which is an atomic store (MOV + memory fence), with no mutex and no memory allocation.
+The active arena pointer is an `atomic.Pointer[arena]` — an atomic store with the required memory ordering guarantees, with no mutex and no memory allocation.
 
 ---
 
@@ -127,7 +127,7 @@ if m.active.Load() != arena {
 
 ### Leave
 
-`numberWriters` is an `atomic.Int32` on its own cache line. The consumer's wait is bounded by a configurable timeout (default 50 ms); if writers have not drained by then, the sealed data is dropped and the arena is reset.
+`numberWriters` is an `atomic.Int32` on its own cache line. The consumer's wait is bounded by a configurable timeout (default 50 ms); if writers have not drained by then, the sealed data is dropped and the arena is reset. This makes the system explicitly lossy under pathological stalls, trading durability for bounded latency.
 
 ```go
 for writers.Load() != 0 {
@@ -213,7 +213,7 @@ The double rotation ensures that any producer who was bumped from A during the f
 - **Zero allocation on the write path.** No `new`, no `make`, no interface boxing after initialization.
 - **No mutexes in the critical path.** CAS + atomic swap everywhere.
 - **False-sharing eliminated.** Every hot atomic sits alone on a 64-byte cache line.
-- **Backpressure without blocking.** A full arena yields inside `Write` via `runtime.Gosched()` until the consumer rotates — no error surfaces to the caller, no goroutine parks, no mutex blocks.
+- **Backpressure without blocking.** A full arena yields inside `Write` via `runtime.Gosched()` until the consumer rotates — no error surfaces to the caller, no producer goroutine blocks on synchronization primitives.
 - **Configurable flush strategy.** One `io.Writer` interface; swap between per-region and isolated-buffer flushers with an option.
 - **Structured telemetry.** Every error type has a padded atomic counter in the `ErrorsRegistry`; a `Snapshot()` call harvests and resets all counts atomically.
 
@@ -224,7 +224,7 @@ The double rotation ensures that any producer who was bumped from A during the f
 - The benchmark uses a zero-cost writer to isolate ingestion overhead from I/O constraints.  
 - Payload size is fixed at 32 bytes to isolate allocator and contention effects.  
 - Parallelism is fixed to 16 goroutines to simulate high contention independent of CPU core count.
-- Rocky 10 was used to run the benchmark.
+- Ryzen 7 5800H with Rocky 10 operating system was used to run the benchmark.
 
 BenchmarkIngestor_Parallel-16    	41500706	        29.62 ns/op	         8.631 Gb/s	       0 B/op
 
