@@ -178,7 +178,7 @@ default: // signal already pending
 
 The consumer's `select` has a third case for this channel alongside the ticker and context done — so pressure from producers feeds back into flush timing without any synchronous coordination.  
 
-When a sub-region is full, Write does not return ErrWriteSubRegionFull to the caller — that error is internal. Instead, the producer captures the current arena's epoch, then yields in a runtime.Gosched() loop until either the active pointer changes (consumer rotated) or the epoch increments (consumer reset the arena after flushing). Only then does it attempt one final (internal) `beginWrite`. This means back-pressure from a full arena is absorbed as scheduler yields inside the Write call, invisible to the caller but visible in latency — which is why benchmarks should measure end-to-end time rather than just reservation cost.
+When a sub-region is full, `Write` does not return `ErrWriteSubRegionFull` to the caller — that error is internal. Instead, the producer captures the current arena's epoch, then yields in a `runtime.Gosched()` loop until either the active pointer changes (consumer rotated) or the epoch increments (consumer reset the arena after flushing). Only then does it attempt one final (internal) `beginWrite`. This means back-pressure from a full arena is absorbed as scheduler yields inside the `Write` call, invisible to the caller but visible in latency — which is why benchmarks should measure end-to-end time rather than just reservation cost.
 
 ---
 
@@ -213,13 +213,13 @@ The double rotation ensures that any producer who was bumped from A during the f
 - **Zero allocation on the write path.** No `new`, no `make`, no interface boxing after initialization.
 - **No mutexes in the critical path.** CAS + atomic swap everywhere.
 - **False-sharing eliminated.** Every hot atomic sits alone on a 64-byte cache line.
-- **Backpressure without blocking.** A full arena yields inside Write via runtime.Gosched() until the consumer rotates — no error surfaces to the caller, no goroutine parks, no mutex blocks.
+- **Backpressure without blocking.** A full arena yields inside `Write` via `runtime.Gosched()` until the consumer rotates — no error surfaces to the caller, no goroutine parks, no mutex blocks.
 - **Configurable flush strategy.** One `io.Writer` interface; swap between per-region and isolated-buffer flushers with an option.
 - **Structured telemetry.** Every error type has a padded atomic counter in the `ErrorsRegistry`; a `Snapshot()` call harvests and resets all counts atomically.
 
 ### Measured Performance
 
-- The benchmark reports end-to-end ingestion latency (including asynchronous flush completion), not just the cost of the Write call.  
+- The benchmark reports end-to-end ingestion latency (including asynchronous flush completion), not just the cost of the `Write` call.  
 - The stabilization detector waits until the total written byte counter stops changing, ensuring all asynchronous flushes have completed.  
 - The benchmark uses a zero-cost writer to isolate ingestion overhead from I/O constraints.  
 - Payload size is fixed at 32 bytes to isolate allocator and contention effects.  
