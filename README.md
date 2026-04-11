@@ -260,7 +260,7 @@ Without this separation, writes to adjacent atomics cause MESI coherence traffic
 
 On multi‑socket machines, producers on socket 1 writing to arena memory allocated on socket 0 pay a cross‑NUMA penalty on every access. Explicit NUMA‑aware allocation (`numactl` or `mmap` with NUMA policy) is planned for a future release.
 
-## 11. Benchmarks
+## 12. Benchmarks
 
 Benchmarks were run on Rocky 10. They measure end‑to‑end ingestion time including asynchronous flush completion, using a zero‑cost writer to isolate ingestion overhead from I/O.
 

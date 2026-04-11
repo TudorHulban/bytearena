@@ -11,7 +11,7 @@ var (
 	ErrWriteShuttingDown    = errors.New("write: shutting down")
 
 	ErrWriterNoProgress  = errors.New("writer: no progress")
-	ErrDroppedSealedData = errors.New("droped: sealed arena data")
+	ErrDroppedSealedData = errors.New("dropped: sealed arena data")
 )
 
 type errorType uint64
@@ -44,6 +44,6 @@ var errorTypeNames = [maxErrorTypes]string{
 	TErrDeadlineExceeded: "deadline_exceeded",
 
 	TErrWriterNoProgress:  "writer: no progress",
-	TErrDroppedSealedData: "droped: sealed arena data",
+	TErrDroppedSealedData: "dropped: sealed arena data",
 	TErrUnknown:           "unknown",
 }
