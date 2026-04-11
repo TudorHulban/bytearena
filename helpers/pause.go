@@ -1,3 +1,5 @@
+//go:build amd64 && linux
+
 package helpers
 
 func procyield(cycles uint32)

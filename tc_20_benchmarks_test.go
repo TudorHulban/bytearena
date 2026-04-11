@@ -1,3 +1,5 @@
+//go:build amd64 && linux
+
 package bytearena
 
 import (
@@ -151,10 +153,10 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_End2End$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_End2End$' -benchmem
 
-// BenchmarkIngestor_ioWriter_End2End-16    	59860435	        21.82 ns/op	        11.73 Gb/s	      71 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
+// BenchmarkIngestor_End2End-16    	59860435	        21.82 ns/op	        11.73 Gb/s	      71 B/op	       0 allocs/op
+func BenchmarkIngestor_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
 	ingestor, _ := NewIngestor(
@@ -215,10 +217,10 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_ioWriter_Noop$' -benchmem
+// go test -run '^$' -bench '^BenchmarkIngestor_Noop$' -benchmem
 
-// BenchmarkIngestor_ioWriter_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_ioWriter_Noop(b *testing.B) {
+// BenchmarkIngestor_Noop-16    	88305834	        13.55 ns/op	        18.89 Gb/s	       0 B/op	       0 allocs/op
+func BenchmarkIngestor_Noop(b *testing.B) {
 	ingestor, _ := NewIngestor(
 		Size1M(),
 		&helpers.NoopWriter{},

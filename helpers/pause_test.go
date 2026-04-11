@@ -1,3 +1,5 @@
+//go:build amd64 && linux
+
 package helpers
 
 import "testing"

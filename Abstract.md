@@ -292,4 +292,4 @@ The source is available on GitHub at [github.com/TudorHulban/bytearena](https://
 
 ---
 
-*Tags: `go` `performance` `concurrency` `systems` `lockfree`*
+*Tags: `go` `golang` `performance` `concurrency` `systems` `lockfree`*
