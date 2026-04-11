@@ -17,7 +17,7 @@ func Test_01_1_Ingestor_SingleWrite(t *testing.T) {
 	ingestor, errCrIngestor := NewIngestor(
 		Size100K(),
 		&writer,
-		WithUnblockMiliseconds(100),
+		WithUnblockMilliseconds(100),
 	)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
@@ -131,7 +131,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	ingestor, errCrIngestor := NewIngestor(
 		_Size1K,
 		&writer,
-		WithTickMiliseconds(1),
+		WithTickMilliseconds(1),
 	)
 	require.NoError(t, errCrIngestor)
 

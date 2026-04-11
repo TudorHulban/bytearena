@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	_Pause1Nanoseconds = 17
+	_PauseNanoseconds = 17
 )
 
 // All benchmarks were done on Rocky 10.
@@ -58,7 +58,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 			},
 
 			PauseFn:         func() { helpers.Pause(1) },
-			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+			PauseFnDuration: _PauseNanoseconds * time.Nanosecond,
 
 			NumberStableSamples:  2,
 			MaximumNumberSamples: 100,
@@ -127,7 +127,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 			},
 
 			PauseFn:         func() { helpers.Pause(1) },
-			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond,
+			PauseFnDuration: _PauseNanoseconds * time.Nanosecond,
 
 			NumberStableSamples:  2,
 			MaximumNumberSamples: 100,
@@ -184,7 +184,7 @@ func BenchmarkIngestor_ioWriter_End2End(b *testing.B) {
 			},
 
 			PauseFn:         func() { helpers.Pause(1) },
-			PauseFnDuration: _Pause1Nanoseconds * time.Nanosecond, // or the measured Pause(30) duration
+			PauseFnDuration: _PauseNanoseconds * time.Nanosecond, // or the measured Pause(30) duration
 
 			NumberStableSamples:  2,   // require 2 identical samples
 			MaximumNumberSamples: 100, // safety cap

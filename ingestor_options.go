@@ -23,7 +23,7 @@ func WithSealPercentage(percentage uint32) Options {
 	}
 }
 
-func WithTickMiliseconds(interval uint16) Options {
+func WithTickMilliseconds(interval uint16) Options {
 	return func(i *Ingestor) error {
 		if interval == 0 {
 			return errors.New("tick value cannot be zero")
@@ -35,7 +35,7 @@ func WithTickMiliseconds(interval uint16) Options {
 	}
 }
 
-func WithUnblockMiliseconds(interval uint16) Options {
+func WithUnblockMilliseconds(interval uint16) Options {
 	return func(i *Ingestor) error {
 		if interval == 0 {
 			return errors.New("unblock flush value cannot be zero")
