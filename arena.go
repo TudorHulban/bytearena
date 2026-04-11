@@ -10,8 +10,8 @@ import (
 // If two atomic.Uint32 values are <64 bytes apart
 // in memory → cache-line contention → performance degradation
 
-// PaddedCursor wraps an atomic.Uint32 with cache-line padding
-type PaddedCursor struct {
+// paddedCursor wraps an atomic.Uint32 with cache-line padding
+type paddedCursor struct {
 	value atomic.Uint32
 	_     [60]byte // pad to 64 bytes (4 + 60 = 64)
 }
@@ -44,13 +44,13 @@ type arena struct { //nolint:govet
 	// subRegions holds the Lower/Upper bounds for each shard.
 	// Stored here so reset can restore cursors to their correct Lower values
 	// without the Ingestor passing them in on every call.
-	subRegions [8]SubRegion
+	subRegions [8]subRegion
 
 	// Per-subregion CAS cursors: one atomic counter per shard
-	subRegionCursors [8]PaddedCursor
+	subRegionCursors [8]paddedCursor
 }
 
-func newArena(arenaSize uint32, subRegions [8]SubRegion) *arena {
+func newArena(arenaSize uint32, subRegions [8]subRegion) *arena {
 	result := arena{
 		buf:        make([]byte, arenaSize),
 		subRegions: subRegions,

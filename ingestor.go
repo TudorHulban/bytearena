@@ -63,25 +63,25 @@ type Ingestor struct { //nolint:govet
 
 	// ── Cache line 4 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
-	arenaFirst              *arena
-	arenaSecond             *arena
-	arenaSealThresholds     [8]uint32
-	arenaSize               uint32
-	maxMessageSize          uint32
-	arenaSealPercentage     uint32
-	milisecondsTickInterval uint16
-	milisecondsUnblock      uint16
+	arenaFirst               *arena
+	arenaSecond              *arena
+	arenaSealThresholds      [8]uint32
+	arenaSize                uint32
+	maxMessageSize           uint32
+	arenaSealPercentage      uint32
+	millisecondsTickInterval uint16
+	millisecondsUnblock      uint16
 
 	// ── Cache line 5+ ─────────────────────────────── Cold ──
 	Registry   ErrorsRegistry
 	Metrics    Metrics
-	subRegions [8]SubRegion
+	subRegions [8]subRegion
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
-	subRegions, regionSize := NewSubRegions(arenaSize)
+	subRegions, regionSize := newSubRegions(arenaSize)
 
 	result := Ingestor{
 		writer:          w,
@@ -98,19 +98,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		arenaSize:      arenaSize,
 		maxMessageSize: regionSize,
 
-		arenaSealPercentage:     90,
-		milisecondsTickInterval: 50,
-		milisecondsUnblock:      50,
-	}
-
-	for ix := range result.subRegions {
-		result.
-			arenaFirst.
-			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
-
-		result.
-			arenaSecond.
-			subRegionCursors[ix].value.Store(result.subRegions[ix].Lower)
+		arenaSealPercentage:      90,
+		millisecondsTickInterval: 50,
+		millisecondsUnblock:      50,
 	}
 
 	result.flusher = result.flushArenaPerRegion
@@ -148,13 +138,13 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 // StartIngestion launches the consumer loop in a goroutine.
 // The caller provides the flush function, which receives the
 // raw bytes of each sealed arena.
-func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
+func (ing *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 	chIngestionEnd := make(chan struct{})
 
 	go func() {
 		defer close(chIngestionEnd)
 
-		m.consumerLoop(ctx)
+		ing.consumerLoop(ctx)
 	}()
 
 	return chIngestionEnd
@@ -165,9 +155,9 @@ func (m *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 // flushes it, and resets it.
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
-func (m *Ingestor) consumerLoop(ctx context.Context) {
+func (ing *Ingestor) consumerLoop(ctx context.Context) {
 	ticker := time.NewTicker(
-		time.Duration(m.milisecondsTickInterval) * time.Millisecond,
+		time.Duration(ing.millisecondsTickInterval) * time.Millisecond,
 	)
 	defer ticker.Stop()
 
@@ -177,17 +167,17 @@ func (m *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			m.isStopped.Store(true)
-			m.flushOnShutdown()
+			ing.isStopped.Store(true)
+			ing.flushOnShutdown()
 
 			return
 
 		case <-ticker.C:
-			m.tick()
+			ing.tick()
 
 			// consumerLoop gets a third case:
-		case <-m.chFlush:
-			m.tick() // same seal/wait/flush/reset as ticker path
+		case <-ing.chFlush:
+			ing.tick() // same seal/wait/flush/reset as ticker path
 		}
 	}
 }

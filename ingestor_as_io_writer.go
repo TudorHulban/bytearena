@@ -1,12 +1,12 @@
 package bytearena
 
-func (m *Ingestor) Write(payload []byte) (int, error) {
+func (ing *Ingestor) Write(payload []byte) (int, error) {
 	if len(payload) == 0 {
 		return 0, nil
 	}
 
 	// Fast path: try once
-	if errWrite := m.write(
+	if errWrite := ing.write(
 		uint32(len(payload)), //nolint:gosec
 
 		func(destination []byte) {

@@ -7,13 +7,13 @@ package bytearena
 //   - rollback pressure (many failed reservations)
 //
 // The exact thresholds can be tuned later.
-func (m *Ingestor) shouldSeal(a *arena) bool {
+func (ing *Ingestor) shouldSeal(a *arena) bool {
 	// Rollback pressure: many producers failed to reserve space.
 	if a.rollbackCounter.Load() > 0 {
 		return true
 	}
 
-	for ix, threshold := range m.arenaSealThresholds {
+	for ix, threshold := range ing.arenaSealThresholds {
 		if a.subRegionCursors[ix].value.Load() >= threshold {
 			return true
 		}

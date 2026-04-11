@@ -83,9 +83,6 @@ func (r *ErrorsRegistry) loadError(value error) {
 	case ErrWriteShuttingDown:
 		r.Counts[TErrWriteShuttingDown].value.Add(1)
 
-	case ErrWriteBackpressure:
-		r.Counts[TErrWriteBackpressure].value.Add(1)
-
 	default:
 		r.Counts[TErrUnknown].value.Add(1)
 	}

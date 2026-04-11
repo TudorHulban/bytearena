@@ -66,7 +66,7 @@ func TestReservationAtBoundary(t *testing.T) {
 		require.NotNil(t, region)
 
 		// Complete the write to release writer slot
-		ingestor.EndWrite(region)
+		ingestor.endWrite(region)
 	}
 
 	// Verify all subregion cursors advanced to their Upper bounds

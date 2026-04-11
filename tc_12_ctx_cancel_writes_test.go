@@ -319,7 +319,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 	<-consumerReady // Wait for consumer to start
 
 	// Write pending data to arena1 (5 writers)
-	regions := make([]WriteRegion, 0, 11)
+	regions := make([]writeRegion, 0, 11)
 
 	for i := range 5 {
 		region, err := ingestor.beginWrite(50)
@@ -356,7 +356,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 
 	// ✅ Complete ALL writes BEFORE cancellation to ensure flush can proceed
 	for _, region := range regions {
-		ingestor.EndWrite(region)
+		ingestor.endWrite(region)
 	}
 
 	// Small delay to let tick() observe sealed arena

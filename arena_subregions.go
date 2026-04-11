@@ -1,21 +1,19 @@
 package bytearena
 
-type SubRegion struct {
+type subRegion struct {
 	Lower uint32
 	Upper uint32
 }
 
-var SubRegions [8]SubRegion
-
-// NewSubRegions partitions the arena into 8 contiguous sub-regions.
+// newSubRegions partitions the arena into 8 contiguous sub-regions.
 // Last region absorbs any remainder if arenaSize % 8 != 0.
-func NewSubRegions(arenaSize uint32) ([8]SubRegion, uint32) {
-	var regions [8]SubRegion
+func newSubRegions(arenaSize uint32) ([8]subRegion, uint32) {
+	var regions [8]subRegion
 
 	regionSize := arenaSize / uint32(len(regions))
 
 	for ix := range regions {
-		regions[ix] = SubRegion{
+		regions[ix] = subRegion{
 			Lower: uint32(ix) * regionSize,   //nolint:gosec
 			Upper: uint32(ix+1) * regionSize, //nolint:gosec
 		}
@@ -27,7 +25,7 @@ func NewSubRegions(arenaSize uint32) ([8]SubRegion, uint32) {
 	return regions, regionSize
 }
 
-func precomputeThresholds(subregions [8]SubRegion, sealPercentage uint32) [8]uint32 {
+func precomputeThresholds(subregions [8]subRegion, sealPercentage uint32) [8]uint32 {
 	var result [8]uint32
 
 	for ix, subRegion := range subregions {
