@@ -64,7 +64,7 @@ func TestRollbackStorm(t *testing.T) {
 				region, errWrite := ingestor.beginWrite(size)
 				if errWrite == nil {
 					successes.Add(1)
-					ingestor.endWrite(region)
+					ingestor.EndWrite(region)
 				} else {
 					rollbacks.Add(1)
 				}
