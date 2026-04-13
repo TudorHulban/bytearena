@@ -173,6 +173,9 @@ linters:
         - name: unused-parameter
           disabled: true
 
+        - name: use-waitgroup-go
+          disabled: true
+
         - name: unexported-return
           disabled: true
 
