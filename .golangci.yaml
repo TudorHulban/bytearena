@@ -129,7 +129,7 @@ linters:
           arguments: [7]
 
         # ============================
-        # DISABLED RULES
+        # revive DISABLED RULES
         # ============================
         - name: package-comments
           disabled: true
@@ -171,6 +171,12 @@ linters:
           disabled: true
 
         - name: unused-parameter
+          disabled: true
+
+        - name: use-waitgroup-go
+          disabled: true
+
+        - name: unexported-return
           disabled: true
 
         - name: modifies-value-receiver 

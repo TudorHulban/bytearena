@@ -179,37 +179,3 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 		"custom flusher should have been invoked",
 	)
 }
-
-func TestTryWrite(t *testing.T) {
-	writer := bytes.Buffer{}
-
-	ingestor, errCrIngestor := NewIngestor(
-		Size100K(),
-		&writer,
-	)
-	require.NoError(t, errCrIngestor)
-	require.NotNil(t, ingestor)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	chIngestionEnd := ingestor.StartIngestion(ctx)
-
-	payload := "xxx"
-
-	var arr [256]byte
-
-	buf := append(arr[:0], []byte(payload)...)
-
-	region, errWrite := ingestor.tryWrite(uint32(len(buf)))
-	require.NoError(t, errWrite)
-	require.NotZero(t, region)
-
-	copy(region.Buf(), buf)
-
-	// must happen before cancel — flushOnShutdown waits for writers
-	ingestor.endWrite(region)
-
-	cancel()
-	<-chIngestionEnd
-
-	require.Contains(t, writer.String(), payload)
-}

@@ -46,7 +46,7 @@ func TestSealDuringActiveWrites(t *testing.T) {
 			// Write data
 			copy(region.Buf(), bytes.Repeat([]byte("x"), 100))
 
-			ingestor.endWrite(region)
+			ingestor.EndWrite(region)
 		}()
 	}
 
@@ -71,7 +71,7 @@ func TestSealDuringActiveWrites(t *testing.T) {
 		ingestor.arenaSecond,
 		region.arena,
 	)
-	ingestor.endWrite(region)
+	ingestor.EndWrite(region)
 
 	// Wait for all slow writes to complete
 	wgProducers.Wait()

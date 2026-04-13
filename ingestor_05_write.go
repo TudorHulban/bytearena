@@ -4,14 +4,14 @@ import (
 	"runtime"
 )
 
-// tryWrite attempts beginWrite once. If it fails, it reloads the active
+// TryWrite attempts beginWrite once. If it fails, it reloads the active
 // arena and tries exactly one more time.
 //
 // This is a convenience helper for callers who want a simple
 // "try once, rotate may have happened, try again" pattern.
 //
 // It does NOT loop indefinitely and does NOT block.
-func (ing *Ingestor) tryWrite(n uint32) (writeRegion, error) {
+func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 	// First attempt.
 	region, errWrite := ing.beginWrite(n)
 	if errWrite == nil {
@@ -76,7 +76,7 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 	regionIdx := ing.counterRequests.Add(1) & 7
 	subRegion := ing.subRegions[regionIdx]
 
-	// Fast-fail if message doesn't fit this sub-region
+	// Fast-fail if message does not fit this sub-region
 	if toReserve > (subRegion.Upper - subRegion.Lower) {
 		arena.AddRollback()
 		arena.Leave()
@@ -121,7 +121,7 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	// b. reset it after flushing (staleArena.epoch bumps → spin exits)
 	staleArena := ing.active.Load()
 
-	region, errTryWrite = ing.tryWrite(n)
+	region, errTryWrite = ing.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
 	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
@@ -167,10 +167,19 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	}
 
 	// Mark write complete.
-	defer ing.endWrite(region)
+	defer ing.EndWrite(region)
 
 	// Write into the reserved region.
 	fn(region.Buf())
 
 	return nil
+}
+
+// EndWrite decrements writers-in-flight.
+//
+// EndWrite must be called before the context is cancelled if wait on chIngestionEnd is used.
+// TryWrite/beginWrite increments the writers-in-flight counter and flushOnShutdown will spin on it indefinitely.
+// Using defer for EndWrite is only safe when the caller is not also waiting for ingestion to drain.
+func (*Ingestor) EndWrite(r writeRegion) {
+	r.arena.Leave()
 }

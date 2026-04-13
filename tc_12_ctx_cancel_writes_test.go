@@ -356,7 +356,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 
 	// ✅ Complete ALL writes BEFORE cancellation to ensure flush can proceed
 	for _, region := range regions {
-		ingestor.endWrite(region)
+		ingestor.EndWrite(region)
 	}
 
 	// Small delay to let tick() observe sealed arena
