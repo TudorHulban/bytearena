@@ -30,7 +30,7 @@ func TestManual(t *testing.T) {
 	app.Get(
 		"/",
 		func(c fiber.Ctx) error {
-			payload := "xxxxxxxxxxxxxxxxxxxx"
+			payload := "xxxxxxxxxxxxxxxxxxxx\n"
 
 			var response string
 
