@@ -225,6 +225,7 @@ func BenchmarkConcurrentProducers(b *testing.B) {
 							if errCrIngestor != nil {
 								b.Fatalf("errCrIngestor = %s", errCrIngestor.Error())
 							}
+
 							require.NotNil(b, ingestor)
 
 							ctx, cancel := context.WithCancel(context.Background())

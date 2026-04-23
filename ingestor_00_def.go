@@ -166,7 +166,7 @@ func (ing *Ingestor) consumerLoop(ctx context.Context) {
 	tickerIfData := time.NewTicker(
 		time.Duration(ing.millisecondsTickIfData) * time.Millisecond,
 	)
-	defer tickerThreshold.Stop()
+	defer tickerIfData.Stop()
 
 	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.
 
