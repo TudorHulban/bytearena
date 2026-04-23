@@ -63,19 +63,20 @@ type Ingestor struct { //nolint:govet
 
 	// ── Cache line 4 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
-	arenaFirst               *arena
-	arenaSecond              *arena
-	arenaSealThresholds      [8]uint32
-	arenaSize                uint32
-	maxMessageSize           uint32
-	arenaSealPercentage      uint32
-	millisecondsTickInterval uint16
-	millisecondsUnblock      uint16
+	arenaFirst             *arena
+	arenaSecond            *arena
+	arenaSealThresholds    [8]uint32
+	arenaSize              uint32
+	maxMessageSize         uint32
+	arenaSealPercentage    uint32
+	millisecondsTickIfData uint16
+	millisecondsUnblock    uint16
 
 	// ── Cache line 5+ ─────────────────────────────── Cold ──
-	Registry   ErrorsRegistry
-	Metrics    Metrics
-	subRegions [8]subRegion
+	Registry                  ErrorsRegistry
+	Metrics                   Metrics
+	subRegions                [8]subRegion
+	millisecondsTickThreshold uint8
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -98,9 +99,10 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		arenaSize:      arenaSize,
 		maxMessageSize: regionSize,
 
-		arenaSealPercentage:      90,
-		millisecondsTickInterval: 50,
-		millisecondsUnblock:      50,
+		arenaSealPercentage:       90,
+		millisecondsTickIfData:    700,
+		millisecondsTickThreshold: 50,
+		millisecondsUnblock:       50,
 	}
 
 	result.flusher = result.flushArenaPerRegion
@@ -156,10 +158,15 @@ func (ing *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (ing *Ingestor) consumerLoop(ctx context.Context) {
-	ticker := time.NewTicker(
-		time.Duration(ing.millisecondsTickInterval) * time.Millisecond,
+	tickerThreshold := time.NewTicker(
+		time.Duration(ing.millisecondsTickThreshold) * time.Millisecond,
 	)
-	defer ticker.Stop()
+	defer tickerThreshold.Stop()
+
+	tickerIfData := time.NewTicker(
+		time.Duration(ing.millisecondsTickIfData) * time.Millisecond,
+	)
+	defer tickerThreshold.Stop()
 
 	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.
 
@@ -172,12 +179,15 @@ func (ing *Ingestor) consumerLoop(ctx context.Context) {
 
 			return
 
-		case <-ticker.C:
-			ing.tick()
+		case <-tickerThreshold.C:
+			ing.tickThreshold()
 
 			// consumerLoop gets a third case:
 		case <-ing.chFlush:
-			ing.tick() // same seal/wait/flush/reset as ticker path
+			ing.tickThreshold() // same seal/wait/flush/reset as ticker path
+
+		case <-tickerIfData.C:
+			ing.tickIfData()
 		}
 	}
 }

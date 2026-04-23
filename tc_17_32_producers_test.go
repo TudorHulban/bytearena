@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,9 +18,9 @@ import (
 // This test verifies the ingestor's performance and correctness under high concurrency
 // with multiple producers writing simultaneously while the consumer rotates arenas.
 
-// Test_1_Concurrent32Producers tests the ingestor with 32 concurrent producers
+// Tests the ingestor with 32 concurrent producers
 // writing at full speed to ensure no data loss and proper synchronization.
-func Test_1_Concurrent32Producers(t *testing.T) {
+func Test_17_1_Concurrent32Producers(t *testing.T) {
 	var out bytes.Buffer
 
 	ingestor, err := NewIngestor(Size8M(), &out)
@@ -97,9 +98,9 @@ func Test_1_Concurrent32Producers(t *testing.T) {
 	)
 }
 
-// Test_2_HighContentionConcurrentWrites tests the ingestor with 64+ producers
+// Tests the ingestor with 64+ producers
 // and aggressive rotation to stress the lock-free mechanisms.
-func Test_2_HighContentionConcurrentWrites(t *testing.T) {
+func Test_17_2_HighContentionConcurrentWrites(t *testing.T) {
 	var out bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(Size16M(), &out, WithSealPercentage(50))
@@ -177,10 +178,22 @@ func Test_2_HighContentionConcurrentWrites(t *testing.T) {
 }
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkConcurrentProducers/producers_4-16             11865310               105.7 ns/op         9451472 writes/sec         25 B/op          0 allocs/op
-// BenchmarkConcurrentProducers/producers_8-16             12573945               105.5 ns/op         9460136 writes/sec         25 B/op          0 allocs/op
-// BenchmarkConcurrentProducers/producers_16-16            11910895               107.5 ns/op         9272497 writes/sec         25 B/op          0 allocs/op
-// BenchmarkConcurrentProducers/producers_32-16            11895201               110.4 ns/op         8997479 writes/sec         25 B/op          0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_1/producers_4-16         	86226817	        13.37 ns/op	  74786903 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_1/producers_8-16         	87988821	        13.54 ns/op	  73846436 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_1/producers_16-16        	83971722	        13.50 ns/op	  74061419 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_1/producers_32-16        	87609158	        13.48 ns/op	  74184473 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_2/producers_4-16         	17275197	        70.06 ns/op	  14273397 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_2/producers_8-16         	17423181	        69.57 ns/op	  14372913 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_2/producers_16-16        	17556499	        68.26 ns/op	  14648572 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_2/producers_32-16        	18213955	        70.15 ns/op	  14254368 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_3/producers_4-16         	20004510	        61.67 ns/op	  16214078 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_3/producers_8-16         	19528316	        60.95 ns/op	  16407084 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_3/producers_16-16        	19592413	        61.49 ns/op	  16263235 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_3/producers_32-16        	19443805	        61.51 ns/op	  16258261 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_4/producers_4-16         	23314588	        51.43 ns/op	  19443706 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_4/producers_8-16         	23507071	        51.25 ns/op	  19509840 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_4/producers_16-16        	23451075	        51.23 ns/op	  19519589 writes/sec	       0 B/op	       0 allocs/op
+// BenchmarkConcurrentProducers/gomaxprocs_4/producers_32-16        	23392860	        51.10 ns/op	  19568707 writes/sec	       0 B/op	       0 allocs/op
 
 // go test -run '^$' -bench '^BenchmarkConcurrentProducers$' -benchmem
 // go test -run '^$' -bench '^BenchmarkConcurrentProducers$' -benchmem -race
@@ -188,70 +201,71 @@ func Test_2_HighContentionConcurrentWrites(t *testing.T) {
 // BenchmarkConcurrentProducers benchmarks the ingestor with increasing numbers of
 // concurrent producers to measure scaling characteristics.
 func BenchmarkConcurrentProducers(b *testing.B) {
+	gomaxprocsValues := []int{1, 2, 3, 4}
 	producerCounts := []int{4, 8, 16, 32}
 
-	for _, numProducers := range producerCounts {
+	for _, mp := range gomaxprocsValues {
 		b.Run(
-			fmt.Sprintf("producers_%d", numProducers),
+			fmt.Sprintf("gomaxprocs_%d", mp),
 			func(b *testing.B) {
-				writer := &helpers.NoopWriter{}
+				for _, numProducers := range producerCounts {
+					b.Run(
+						fmt.Sprintf("producers_%d", numProducers),
+						func(b *testing.B) {
+							prev := runtime.GOMAXPROCS(mp)
+							defer runtime.GOMAXPROCS(prev)
 
-				ingestor, errCrIngestor := NewIngestor(
-					Size1M(),
-					writer,
-					WithUnblockMilliseconds(90),
-				)
-				if errCrIngestor != nil {
-					b.Fatalf(
-						"errCrIngestor = %s",
-						errCrIngestor.Error(),
-					)
-				}
+							writer := &helpers.NoopWriter{}
 
-				if ingestor == nil {
-					b.Fatal(
-						"nil ingestor created",
-					)
-				}
-
-				require.NotNil(b, ingestor)
-
-				ctx, cancel := context.WithCancel(context.Background())
-				chIngestionEnd := ingestor.StartIngestion(ctx)
-
-				payload := []byte("benchmark-payload-32bytes")
-
-				b.ResetTimer()
-				b.SetParallelism(numProducers)
-
-				var writesCompleted atomic.Int64
-
-				b.RunParallel(
-					func(pb *testing.PB) {
-						for pb.Next() {
-							if _, errWrite := ingestor.Write(payload); errWrite == nil {
-								writesCompleted.Add(1)
+							ingestor, errCrIngestor := NewIngestor(
+								Size1M(),
+								writer,
+								WithUnblockMilliseconds(90),
+							)
+							if errCrIngestor != nil {
+								b.Fatalf("errCrIngestor = %s", errCrIngestor.Error())
 							}
-						}
-					},
-				)
+							require.NotNil(b, ingestor)
 
-				cancel()
-				<-chIngestionEnd
+							ctx, cancel := context.WithCancel(context.Background())
+							chIngestionEnd := ingestor.StartIngestion(ctx)
 
-				b.StopTimer()
-				b.ReportMetric(
-					float64(writesCompleted.Load())/b.Elapsed().Seconds(),
-					"writes/sec",
-				)
+							payload := []byte("benchmark-payload-32bytes")
+
+							b.ResetTimer()
+							b.SetParallelism(numProducers)
+
+							var writesCompleted atomic.Int64
+
+							b.RunParallel(
+								func(pb *testing.PB) {
+									for pb.Next() {
+										if _, errWrite := ingestor.Write(payload); errWrite == nil {
+											writesCompleted.Add(1)
+										}
+									}
+								},
+							)
+
+							cancel()
+							<-chIngestionEnd
+
+							b.StopTimer()
+							b.ReportMetric(
+								float64(writesCompleted.Load())/b.Elapsed().Seconds(),
+								"writes/sec",
+							)
+						},
+					)
+				}
 			},
 		)
 	}
 }
 
-// Test_3_ConcurrentProducersWithVariablePayload tests the ingestor with
+// Tests the ingestor with
 // different payload sizes under high concurrency.
-func Test_3_ConcurrentProducersWithVariablePayload(t *testing.T) {
+func Test_17_3_ConcurrentProducersWithVariablePayload(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCr := NewIngestor(Size16M(), &writer)
@@ -325,7 +339,7 @@ func Test_3_ConcurrentProducersWithVariablePayload(t *testing.T) {
 
 // Test_4_ProducerConsumerThroughput tests the throughput under sustained load
 // with 32 producers and continuous rotation.
-func Test_4_ProducerConsumerThroughput(t *testing.T) {
+func Test_17_4_ProducerConsumerThroughput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping throughput test in short mode")
 	}
@@ -393,8 +407,13 @@ func Test_4_ProducerConsumerThroughput(t *testing.T) {
 	throughputWrites := float64(successCount.Load()) / elapsed.Seconds()
 	throughputBytes := float64(totalBytes.Load()) / elapsed.Seconds() / (1024 * 1024)
 
-	t.Logf("Throughput: %.0f writes/sec, %.2f MB/sec", throughputWrites, throughputBytes)
-	t.Logf("Total writes: %d, Total bytes: %d, Duration: %v",
+	t.Logf(
+		"Throughput: %.0f writes/sec, %.2f MB/sec",
+		throughputWrites,
+		throughputBytes,
+	)
+	t.Logf(
+		"Total writes: %d, Total bytes: %d, Duration: %v",
 		successCount.Load(),
 		totalBytes.Load(),
 		elapsed,
@@ -407,19 +426,19 @@ func Test_4_ProducerConsumerThroughput(t *testing.T) {
 	)
 }
 
-// cpu: AMD Ryzen 5 5600U with Radeon Graphics
-// BenchmarkConcurrentProducersFixedTime/producers_4-12         	       1	2000665582 ns/op	  15552608 writes/sec	 2106880 B/op	      70 allocs/op
-// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_4-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:440: 4 producers: 15552608 writes/sec, total writes: 31105215
-// BenchmarkConcurrentProducersFixedTime/producers_8-12         	       1	2000741605 ns/op	  16176442 writes/sec	 2124896 B/op	      93 allocs/op
-// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_8-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:440: 8 producers: 16176442 writes/sec, total writes: 32352884
-// BenchmarkConcurrentProducersFixedTime/producers_16-12        	       1	2016553047 ns/op	   2097204 writes/sec	 2121360 B/op	     149 allocs/op
-// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_16-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:440: 16 producers: 2097204 writes/sec, total writes: 4194408
-// BenchmarkConcurrentProducersFixedTime/producers_32-12        	       1	2015873857 ns/op	    838860 writes/sec	 2121808 B/op	     149 allocs/op
-// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_32-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:440: 32 producers: 838860 writes/sec, total writes: 1677720
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkConcurrentProducersFixedTime/producers_4-16         	       1	2000971561 ns/op	  20217295 writes/sec	 2373112 B/op	    3951 allocs/op
+// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_4-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_17_32_producers_test.go:496: 4 producers: 20217295 writes/sec, total writes: 40434590
+// BenchmarkConcurrentProducersFixedTime/producers_8-16         	       1	2000306769 ns/op	  23704606 writes/sec	 2442872 B/op	    4652 allocs/op
+// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_8-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_17_32_producers_test.go:496: 8 producers: 23704606 writes/sec, total writes: 47409212
+// BenchmarkConcurrentProducersFixedTime/producers_16-16        	       1	2000274938 ns/op	  33842496 writes/sec	 2594128 B/op	    6706 allocs/op
+// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_16-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_17_32_producers_test.go:496: 16 producers: 33842496 writes/sec, total writes: 67684991
+// BenchmarkConcurrentProducersFixedTime/producers_32-16        	       1	2002037825 ns/op	  33737738 writes/sec	 2568280 B/op	    6645 allocs/op
+// --- BENCH: BenchmarkConcurrentProducersFixedTime/producers_32-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_17_32_producers_test.go:496: 32 producers: 33737738 writes/sec, total writes: 67475475
 
 // BenchmarkConcurrentProducersFixedTime benchmarks with fixed duration
 // to get accurate throughput measurements across different producer counts.
@@ -484,248 +503,6 @@ func BenchmarkConcurrentProducersFixedTime(b *testing.B) {
 		)
 	}
 }
-
-// cpu: AMD Ryzen 5 5600U with Radeon Graphics
-// BenchmarkContentionScaling/A_100K_P_4_S_90-12         	       1	3000128751 ns/op	  12597496 writes/sec	  230992 B/op	     107 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_4_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(90), 4 producers: 12597496 writes/sec
-// BenchmarkContentionScaling/A_100K_P_4_S_95-12         	       1	3000268695 ns/op	  12482232 writes/sec	  224032 B/op	      81 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_4_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(95), 4 producers: 12482232 writes/sec
-// BenchmarkContentionScaling/A_100K_P_4_S_97-12         	       1	3000121577 ns/op	  12562317 writes/sec	  221392 B/op	      68 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_4_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(97), 4 producers: 12562317 writes/sec
-// BenchmarkContentionScaling/A_100K_P_4_S_99-12         	       1	3000099156 ns/op	  12444895 writes/sec	  223072 B/op	      87 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_4_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(99), 4 producers: 12444895 writes/sec
-// BenchmarkContentionScaling/A_100K_P_8_S_90-12         	       1	3000253186 ns/op	  13368310 writes/sec	  243328 B/op	     131 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_8_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(90), 8 producers: 13368310 writes/sec
-// BenchmarkContentionScaling/A_100K_P_8_S_95-12         	       1	3000168546 ns/op	  13294967 writes/sec	  225136 B/op	      90 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_8_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(95), 8 producers: 13294967 writes/sec
-// BenchmarkContentionScaling/A_100K_P_8_S_97-12         	       1	3000122710 ns/op	  13248053 writes/sec	  228624 B/op	      86 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_8_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(97), 8 producers: 13248053 writes/sec
-// BenchmarkContentionScaling/A_100K_P_8_S_99-12         	       1	3000236405 ns/op	  13262198 writes/sec	  223856 B/op	      87 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_8_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(99), 8 producers: 13262198 writes/sec
-// BenchmarkContentionScaling/A_100K_P_16_S_90-12        	       1	3004275572 ns/op	    205878 writes/sec	  230928 B/op	     119 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_16_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(90), 16 producers: 205878 writes/sec
-// BenchmarkContentionScaling/A_100K_P_16_S_95-12        	       1	3003444174 ns/op	    203224 writes/sec	  228928 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_16_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(95), 16 producers: 203224 writes/sec
-// BenchmarkContentionScaling/A_100K_P_16_S_97-12        	       1	3006558897 ns/op	    201783 writes/sec	  230976 B/op	     126 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_16_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(97), 16 producers: 201783 writes/sec
-// BenchmarkContentionScaling/A_100K_P_16_S_99-12        	       1	3006681399 ns/op	    204350 writes/sec	  224256 B/op	     108 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_16_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(99), 16 producers: 204350 writes/sec
-// BenchmarkContentionScaling/A_100K_P_32_S_90-12        	       1	3005383301 ns/op	     77686 writes/sec	  238576 B/op	     143 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_32_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(90), 32 producers: 77686 writes/sec
-// BenchmarkContentionScaling/A_100K_P_32_S_95-12        	       1	3002756196 ns/op	     80556 writes/sec	  234512 B/op	     140 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_32_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(95), 32 producers: 80556 writes/sec
-// BenchmarkContentionScaling/A_100K_P_32_S_97-12        	       1	3007146135 ns/op	     85814 writes/sec	  236304 B/op	     144 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_32_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(97), 32 producers: 85814 writes/sec
-// BenchmarkContentionScaling/A_100K_P_32_S_99-12        	       1	3002935304 ns/op	     75025 writes/sec	  228240 B/op	     126 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_100K_P_32_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 100K(99), 32 producers: 75025 writes/sec
-// BenchmarkContentionScaling/A_500K_P_4_S_90-12         	       1	3000404251 ns/op	  14987667 writes/sec	 1038752 B/op	      57 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_4_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(90), 4 producers: 14987667 writes/sec
-// BenchmarkContentionScaling/A_500K_P_4_S_95-12         	       1	3000537592 ns/op	  14687085 writes/sec	 1039648 B/op	      59 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_4_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(95), 4 producers: 14687085 writes/sec
-// BenchmarkContentionScaling/A_500K_P_4_S_97-12         	       1	3000083235 ns/op	  14710692 writes/sec	 1038736 B/op	      57 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_4_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(97), 4 producers: 14710692 writes/sec
-// BenchmarkContentionScaling/A_500K_P_4_S_99-12         	       1	3000326214 ns/op	  14935278 writes/sec	 1038752 B/op	      57 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_4_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(99), 4 producers: 14935278 writes/sec
-// BenchmarkContentionScaling/A_500K_P_8_S_90-12         	       1	3000401556 ns/op	  15651956 writes/sec	 1042784 B/op	      74 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_8_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(90), 8 producers: 15651956 writes/sec
-// BenchmarkContentionScaling/A_500K_P_8_S_95-12         	       1	3000749913 ns/op	  16124686 writes/sec	 1039104 B/op	      65 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_8_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(95), 8 producers: 16124686 writes/sec
-// BenchmarkContentionScaling/A_500K_P_8_S_97-12         	       1	3000074620 ns/op	  16103313 writes/sec	 1041728 B/op	      74 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_8_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(97), 8 producers: 16103313 writes/sec
-// BenchmarkContentionScaling/A_500K_P_8_S_99-12         	       1	3000196489 ns/op	  16076044 writes/sec	 1042528 B/op	      75 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_8_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(99), 8 producers: 16076044 writes/sec
-// BenchmarkContentionScaling/A_500K_P_16_S_90-12        	       1	3020121685 ns/op	   1010433 writes/sec	 1047712 B/op	     101 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_16_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(90), 16 producers: 1010433 writes/sec
-// BenchmarkContentionScaling/A_500K_P_16_S_95-12        	       1	3010191307 ns/op	   1006947 writes/sec	 1047424 B/op	      98 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_16_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(95), 16 producers: 1006947 writes/sec
-// BenchmarkContentionScaling/A_500K_P_16_S_97-12        	       1	3010253365 ns/op	   1054552 writes/sec	 1051488 B/op	      98 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_16_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(97), 16 producers: 1054552 writes/sec
-// BenchmarkContentionScaling/A_500K_P_16_S_99-12        	       1	3002708085 ns/op	   1016325 writes/sec	 1048480 B/op	     109 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_16_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(99), 16 producers: 1016325 writes/sec
-// BenchmarkContentionScaling/A_500K_P_32_S_90-12        	       1	3005477288 ns/op	    456775 writes/sec	 1053040 B/op	     141 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_32_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(90), 32 producers: 456775 writes/sec
-// BenchmarkContentionScaling/A_500K_P_32_S_95-12        	       1	3003892629 ns/op	    388731 writes/sec	 1055088 B/op	     144 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_32_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(95), 32 producers: 388731 writes/sec
-// BenchmarkContentionScaling/A_500K_P_32_S_97-12        	       1	3004193767 ns/op	    395402 writes/sec	 1055728 B/op	     147 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_32_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(97), 32 producers: 395402 writes/sec
-// BenchmarkContentionScaling/A_500K_P_32_S_99-12        	       1	3005153016 ns/op	    374831 writes/sec	 1046768 B/op	     127 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_500K_P_32_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 500K(99), 32 producers: 374831 writes/sec
-// BenchmarkContentionScaling/A_1M_P_4_S_90-12           	       1	3001080226 ns/op	  15254722 writes/sec	 2103664 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_4_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(90), 4 producers: 15254722 writes/sec
-// BenchmarkContentionScaling/A_1M_P_4_S_95-12           	       1	3000788105 ns/op	  15137534 writes/sec	 2103664 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_4_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(95), 4 producers: 15137534 writes/sec
-// BenchmarkContentionScaling/A_1M_P_4_S_97-12           	       1	3000695309 ns/op	  15243055 writes/sec	 2103664 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_4_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(97), 4 producers: 15243055 writes/sec
-// BenchmarkContentionScaling/A_1M_P_4_S_99-12           	       1	3000445759 ns/op	  15209385 writes/sec	 2105648 B/op	      62 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_4_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(99), 4 producers: 15209385 writes/sec
-// BenchmarkContentionScaling/A_1M_P_8_S_90-12           	       1	3000636889 ns/op	  16631128 writes/sec	 2107600 B/op	      72 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_8_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(90), 8 producers: 16631128 writes/sec
-// BenchmarkContentionScaling/A_1M_P_8_S_95-12           	       1	3000251212 ns/op	  17126394 writes/sec	 2108624 B/op	      79 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_8_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(95), 8 producers: 17126394 writes/sec
-// BenchmarkContentionScaling/A_1M_P_8_S_97-12           	       1	3000257814 ns/op	  16441529 writes/sec	 2104016 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_8_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(97), 8 producers: 16441529 writes/sec
-// BenchmarkContentionScaling/A_1M_P_8_S_99-12           	       1	3000094908 ns/op	  16560294 writes/sec	 2103888 B/op	      61 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_8_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(99), 8 producers: 16560294 writes/sec
-// BenchmarkContentionScaling/A_1M_P_16_S_90-12          	       1	3005343475 ns/op	   2065661 writes/sec	 2110640 B/op	     105 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_16_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(90), 16 producers: 2065661 writes/sec
-// BenchmarkContentionScaling/A_1M_P_16_S_95-12          	       1	3002735176 ns/op	   2053389 writes/sec	 2111728 B/op	     100 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_16_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(95), 16 producers: 2053389 writes/sec
-// BenchmarkContentionScaling/A_1M_P_16_S_97-12          	       1	3005781471 ns/op	   2079229 writes/sec	 2113392 B/op	     108 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_16_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(97), 16 producers: 2079229 writes/sec
-// BenchmarkContentionScaling/A_1M_P_16_S_99-12          	       1	3003806848 ns/op	   2038713 writes/sec	 2104720 B/op	      80 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_16_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(99), 16 producers: 2038713 writes/sec
-// BenchmarkContentionScaling/A_1M_P_32_S_90-12          	       1	3004441434 ns/op	    753965 writes/sec	 2111184 B/op	     119 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_32_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(90), 32 producers: 753965 writes/sec
-// BenchmarkContentionScaling/A_1M_P_32_S_95-12          	       1	3003417033 ns/op	    782070 writes/sec	 2119568 B/op	     142 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_32_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(95), 32 producers: 782070 writes/sec
-// BenchmarkContentionScaling/A_1M_P_32_S_97-12          	       1	3003551716 ns/op	    851857 writes/sec	 2106160 B/op	     113 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_32_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(97), 32 producers: 851857 writes/sec
-// BenchmarkContentionScaling/A_1M_P_32_S_99-12          	       1	3004894519 ns/op	    809601 writes/sec	 2106128 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_1M_P_32_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 1M(99), 32 producers: 809601 writes/sec
-// BenchmarkContentionScaling/A_2M_P_4_S_90-12           	       1	3001411901 ns/op	  15376116 writes/sec	 4200816 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_4_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(90), 4 producers: 15376116 writes/sec
-// BenchmarkContentionScaling/A_2M_P_4_S_95-12           	       1	3000650215 ns/op	  15150921 writes/sec	 4200816 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_4_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(95), 4 producers: 15150921 writes/sec
-// BenchmarkContentionScaling/A_2M_P_4_S_97-12           	       1	3000271902 ns/op	  15034089 writes/sec	 4200816 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_4_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(97), 4 producers: 15034089 writes/sec
-// BenchmarkContentionScaling/A_2M_P_4_S_99-12           	       1	3001041523 ns/op	  15466430 writes/sec	 4200848 B/op	      57 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_4_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(99), 4 producers: 15466430 writes/sec
-// BenchmarkContentionScaling/A_2M_P_8_S_90-12           	       1	3001105954 ns/op	  16747990 writes/sec	 4201168 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_8_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(90), 8 producers: 16747990 writes/sec
-// BenchmarkContentionScaling/A_2M_P_8_S_95-12           	       1	3000842177 ns/op	  16673060 writes/sec	 4201168 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_8_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(95), 8 producers: 16673060 writes/sec
-// BenchmarkContentionScaling/A_2M_P_8_S_97-12           	       1	3001024591 ns/op	  16780062 writes/sec	 4201168 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_8_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(97), 8 producers: 16780062 writes/sec
-// BenchmarkContentionScaling/A_2M_P_8_S_99-12           	       1	3001111765 ns/op	  16790112 writes/sec	 4201168 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_8_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(99), 8 producers: 16790112 writes/sec
-// BenchmarkContentionScaling/A_2M_P_16_S_90-12          	       1	3006817926 ns/op	   4157143 writes/sec	 4202928 B/op	      91 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_16_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(90), 16 producers: 4157143 writes/sec
-// BenchmarkContentionScaling/A_2M_P_16_S_95-12          	       1	3006754095 ns/op	   4157239 writes/sec	 4201872 B/op	      80 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_16_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(95), 16 producers: 4157239 writes/sec
-// BenchmarkContentionScaling/A_2M_P_16_S_97-12          	       1	3012075541 ns/op	   4149929 writes/sec	 4202256 B/op	      84 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_16_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(97), 16 producers: 4149929 writes/sec
-// BenchmarkContentionScaling/A_2M_P_16_S_99-12          	       1	3004079682 ns/op	   4132975 writes/sec	 4202064 B/op	      82 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_16_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(99), 16 producers: 4132975 writes/sec
-// BenchmarkContentionScaling/A_2M_P_32_S_90-12          	       1	3003296395 ns/op	   1676046 writes/sec	 4203280 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_32_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(90), 32 producers: 1676046 writes/sec
-// BenchmarkContentionScaling/A_2M_P_32_S_95-12          	       1	3004035469 ns/op	   1647633 writes/sec	 4203280 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_32_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(95), 32 producers: 1647633 writes/sec
-// BenchmarkContentionScaling/A_2M_P_32_S_97-12          	       1	3003967931 ns/op	   1759370 writes/sec	 4209104 B/op	     125 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_32_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(97), 32 producers: 1759370 writes/sec
-// BenchmarkContentionScaling/A_2M_P_32_S_99-12          	       1	3004064253 ns/op	   1675551 writes/sec	 4203280 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_2M_P_32_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 2M(99), 32 producers: 1675551 writes/sec
-// BenchmarkContentionScaling/A_4M_P_4_S_90-12           	       1	3001133365 ns/op	  15353890 writes/sec	 8395120 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_4_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(90), 4 producers: 15353890 writes/sec
-// BenchmarkContentionScaling/A_4M_P_4_S_95-12           	       1	3000651287 ns/op	  15281983 writes/sec	 8395120 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_4_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(95), 4 producers: 15281983 writes/sec
-// BenchmarkContentionScaling/A_4M_P_4_S_97-12           	       1	3001758996 ns/op	  15319684 writes/sec	 8395120 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_4_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(97), 4 producers: 15319684 writes/sec
-// BenchmarkContentionScaling/A_4M_P_4_S_99-12           	       1	3001838135 ns/op	  15282798 writes/sec	 8395120 B/op	      56 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_4_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(99), 4 producers: 15282798 writes/sec
-// BenchmarkContentionScaling/A_4M_P_8_S_90-12           	       1	3001293548 ns/op	  16732424 writes/sec	 8395472 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_8_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(90), 8 producers: 16732424 writes/sec
-// BenchmarkContentionScaling/A_4M_P_8_S_95-12           	       1	3002192333 ns/op	  16899979 writes/sec	 8395472 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_8_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(95), 8 producers: 16899979 writes/sec
-// BenchmarkContentionScaling/A_4M_P_8_S_97-12           	       1	3000785730 ns/op	  16739337 writes/sec	 8395472 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_8_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(97), 8 producers: 16739337 writes/sec
-// BenchmarkContentionScaling/A_4M_P_8_S_99-12           	       1	3000963596 ns/op	  16867497 writes/sec	 8395472 B/op	      64 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_8_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(99), 8 producers: 16867497 writes/sec
-// BenchmarkContentionScaling/A_4M_P_16_S_90-12          	       1	3003076350 ns/op	   8325168 writes/sec	 8396560 B/op	      84 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_16_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(90), 16 producers: 8325168 writes/sec
-// BenchmarkContentionScaling/A_4M_P_16_S_95-12          	       1	3004841519 ns/op	   8264533 writes/sec	 8397776 B/op	      93 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_16_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(95), 16 producers: 8264533 writes/sec
-// BenchmarkContentionScaling/A_4M_P_16_S_97-12          	       1	3006025111 ns/op	   8263313 writes/sec	 8398096 B/op	     100 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_16_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(97), 16 producers: 8263313 writes/sec
-// BenchmarkContentionScaling/A_4M_P_16_S_99-12          	       1	3006086877 ns/op	   8319093 writes/sec	 8403664 B/op	     103 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_16_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(99), 16 producers: 8319093 writes/sec
-// BenchmarkContentionScaling/A_4M_P_32_S_90-12          	       1	3002140355 ns/op	   3298725 writes/sec	 8397584 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_32_S_90-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(90), 32 producers: 3298725 writes/sec
-// BenchmarkContentionScaling/A_4M_P_32_S_95-12          	       1	3003414267 ns/op	   3185279 writes/sec	 8397584 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_32_S_95-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(95), 32 producers: 3185279 writes/sec
-// BenchmarkContentionScaling/A_4M_P_32_S_97-12          	       1	3003843567 ns/op	   3129375 writes/sec	 8397584 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_32_S_97-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(97), 32 producers: 3129375 writes/sec
-// BenchmarkContentionScaling/A_4M_P_32_S_99-12          	       1	3004611335 ns/op	   3183395 writes/sec	 8397584 B/op	     112 allocs/op
-// --- BENCH: BenchmarkContentionScaling/A_4M_P_32_S_99-12
-//     /mnt/tmpfs.ramdisk/bytearena/tc_16_32_producers_test.go:510: Arena 4M(99), 32 producers: 3183395 writes/sec
 
 // BenchmarkContentionScaling measures how contention affects throughput
 // by varying both producers and arena size.

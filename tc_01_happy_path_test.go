@@ -131,7 +131,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	ingestor, errCrIngestor := NewIngestor(
 		_Size1K,
 		&writer,
-		WithTickMilliseconds(1),
+		WithTickThresholdMilliseconds(1),
 	)
 	require.NoError(t, errCrIngestor)
 
