@@ -13,6 +13,8 @@ import (
 )
 
 func TestManual(t *testing.T) {
+	// t.Skip("manual only")
+
 	writer := os.Stdout
 
 	ingestor, errCrIngestor := bytearena.NewIngestor(
@@ -24,6 +26,11 @@ func TestManual(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	chIngestionEnd := ingestor.StartIngestion(ctx)
+
+	defer func() {
+		cancel()
+		<-chIngestionEnd
+	}()
 
 	app := fiber.New()
 
@@ -54,7 +61,4 @@ func TestManual(t *testing.T) {
 	)
 
 	log.Fatal(app.Listen(":3000"))
-
-	cancel()
-	<-chIngestionEnd
 }

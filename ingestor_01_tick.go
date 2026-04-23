@@ -12,11 +12,26 @@ import (
 // - flushes sealed arena
 func (ing *Ingestor) tick() {
 	activeArena := ing.active.Load()
-	if activeArena == nil || !ing.shouldSeal(activeArena) {
+	if activeArena == nil {
 		return
 	}
 
+	// sealing triggers:
+	// Trigger A: rollback pressure (many failed reservations)
+	// Trigger B: any subregion crossed its lower bound
+	if activeArena.rollbackCounter.Load() == 0 {
+		for ix := range ing.subRegions {
+			if activeArena.subRegionCursors[ix].value.Load() > ing.subRegions[ix].Lower {
+				goto seal
+			}
+		}
+
+		return
+	}
+
+seal:
 	sealedArena := ing.rotate()
+
 	if sealedArena == nil {
 		return
 	}

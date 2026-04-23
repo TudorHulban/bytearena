@@ -45,6 +45,7 @@ linters:
     - noinlineerr
     - nolintlint
     - paralleltest
+    - perfsprint
     - recvcheck
     - tagalign
     - tagliatelle
