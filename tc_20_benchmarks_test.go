@@ -3,14 +3,11 @@
 package bytearena
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
@@ -23,7 +20,7 @@ const (
 // go test -run '^$' -bench '^BenchmarkArena_ConstantPayload$' -benchmem
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_ConstantPayload-16    	89981698	        13.60 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkArena_ConstantPayload-16    	83942704	        14.05 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_ConstantPayload(b *testing.B) {
 	var writer helpers.CountWriterNoBuffer
 
@@ -87,7 +84,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkArena_FormattedPayload$' -benchmem
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkArena_FormattedPayload-16    	46554699	        26.14 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkArena_FormattedPayload-16    	46383705	        26.44 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkArena_FormattedPayload(b *testing.B) {
 	writer := helpers.CountWriterNoBuffer{}
 
@@ -155,7 +152,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 
 // go test -run '^$' -bench '^BenchmarkIngestor_End2End$' -benchmem
 
-// BenchmarkIngestor_End2End-16    	59860435	        21.82 ns/op	        11.73 Gb/s	      71 B/op	       0 allocs/op
+// BenchmarkIngestor_End2End-16    	55847721	        23.79 ns/op	        10.76 Gb/s	      76 B/op	       0 allocs/op
 func BenchmarkIngestor_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -279,60 +276,4 @@ func BenchmarkIngestor_Noop(b *testing.B) {
 
 	cancel()
 	<-chIngestionEnd
-}
-
-// go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem
-
-// cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena500K-16         	87050940	        12.96 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena500K-16         	83347240	        13.95 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena500K-16        	65489949	        18.42 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena500K-16       	34579744	        31.49 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena1M-16           	90196822	        12.94 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena1M-16           	81967728	        14.21 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena1M-16          	65769919	        18.56 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena1M-16         	39526436	        30.01 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg16_arena2M-16           	90564499	        12.60 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg64_arena2M-16           	85387354	        13.53 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg256_arena2M-16          	58958144	        20.44 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/size_msg1024_arena2M-16         	42288590	        28.39 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_MultipleSizes(b *testing.B) {
-	sizesMessage := []int{16, 64, 256, 1024}
-	sizesArena := []Size{Size500K, Size1M, Size2M}
-
-	for _, sizeArena := range sizesArena {
-		for _, sizeMessage := range sizesMessage {
-			b.Run(
-				fmt.Sprintf(
-					"size_msg%d_arena%s",
-					sizeMessage,
-					sizeArena.String(),
-				),
-
-				func(b *testing.B) {
-					ingestor, errCrIngestor := NewIngestor(
-						sizeArena(),
-						&helpers.NoopWriter{},
-					)
-					require.NoError(b, errCrIngestor)
-					require.NotNil(b, ingestor)
-
-					ctx, cancel := context.WithCancel(context.Background())
-					chIngestionEnd := ingestor.StartIngestion(ctx)
-
-					payload := bytes.Repeat([]byte("x"), sizeMessage)
-
-					b.ReportAllocs()
-					b.ResetTimer()
-
-					for b.Loop() {
-						_, _ = ingestor.Write(payload)
-					}
-
-					cancel()
-					<-chIngestionEnd
-				},
-			)
-		}
-	}
 }

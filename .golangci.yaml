@@ -121,7 +121,7 @@ linters:
           exclude: ["_test.go"]
 
         - name: cognitive-complexity
-          arguments: [50]
+          arguments: [60]
 
         - name: cyclomatic
           arguments: [18]

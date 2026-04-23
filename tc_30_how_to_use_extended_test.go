@@ -13,7 +13,7 @@ import (
 )
 
 func TestManual(t *testing.T) {
-	// t.Skip("manual only")
+	t.Skip("manual only")
 
 	writer := os.Stdout
 
