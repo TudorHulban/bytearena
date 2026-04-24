@@ -69,7 +69,7 @@ func Test_03_Ingestor_CheckRollback(t *testing.T) {
 		},
 	)
 	if errWrite3 != nil {
-		require.ErrorIs(t, errWrite3, ErrWriteShuttingDown)
+		require.ErrorIs(t, errWrite3, errWriteShuttingDown)
 	}
 
 	cancel()
@@ -163,7 +163,7 @@ func Test_04_Ingestor_IsolatedBufferFlusher(t *testing.T) {
 		},
 	)
 	if errWrite3 != nil {
-		require.ErrorIs(t, errWrite3, ErrWriteShuttingDown)
+		require.ErrorIs(t, errWrite3, errWriteShuttingDown)
 	}
 
 	cancel()

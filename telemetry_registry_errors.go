@@ -68,19 +68,19 @@ func (r *ErrorsRegistry) loadError(value error) {
 	}
 
 	switch value {
-	case ErrWriteNoActiveArena:
+	case errWriteNoActiveArena:
 		r.Counts[TErrWriteNoActiveArena].value.Add(1)
 
-	case ErrWriteActiveArenaMismatch:
+	case errWriteActiveArenaMismatch:
 		r.Counts[TErrWriteActiveArenaMismatch].value.Add(1)
 
-	case ErrWriteSubRegionFull:
+	case errWriteSubRegionFull:
 		r.Counts[TErrWriteSubRegionFull].value.Add(1)
 
-	case ErrWriteMessageTooLarge:
+	case errWriteMessageTooLarge:
 		r.Counts[TErrWriteMessageTooLarge].value.Add(1)
 
-	case ErrWriteShuttingDown:
+	case errWriteShuttingDown:
 		r.Counts[TErrWriteShuttingDown].value.Add(1)
 
 	default:

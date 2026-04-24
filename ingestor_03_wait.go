@@ -3,45 +3,37 @@
 package bytearena
 
 import (
-	"context"
 	"runtime"
 	"time"
 
 	"github.com/tudorhulban/bytearena/helpers"
 )
 
-// waitForWritersCtx blocks until writers==0 OR context expires.
-// Uses adaptive backoff: spin → yield → sleep.
-func (*Ingestor) waitForWritersCtx(ctx context.Context, a *arena) error {
+func (ing *Ingestor) waitForWriters(a *arena) error {
 	writers := &a.numberWriters
 	spin := 0
 
+	// Compute deadline once.
+	deadline := helpers.Nanotime() + int64(ing.millisecondsUnblock)*1_000_000
+
+	// Adaptive backoff.
 	for writers.Load() != 0 {
-		// Check cancellation EVERY iteration.
-		// Use ctx.Err as faster than ctx.Done read.
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		// select {
-		// case <-ctx.Done():
-		// 	return ctx.Err()
-		// default:
-		// }
-
-		// Adaptive backoff strategy
 		switch {
 		case spin < 20:
 			helpers.Pause(1)
-
 		case spin < 100:
 			runtime.Gosched()
 
-		default: // Long wait: sleep to avoid CPU burn under sustained contention.
+		default:
 			time.Sleep(5 * time.Microsecond)
 		}
 
 		spin++
+
+		if helpers.Nanotime() > deadline {
+			return errTimeoutWaitForWriters
+		}
+
 	}
 
 	return nil

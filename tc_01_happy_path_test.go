@@ -80,7 +80,7 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 			)
 		},
 
-		ErrWriteShuttingDown,
+		errWriteShuttingDown,
 	)
 
 	cancel()
@@ -113,7 +113,7 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 			return errWrite
 		},
 
-		ErrWriteShuttingDown,
+		errWriteShuttingDown,
 	)
 
 	cancel()

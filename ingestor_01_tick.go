@@ -1,10 +1,5 @@
 package bytearena
 
-import (
-	"context"
-	"time"
-)
-
 // tickThreshold performs one consumer iteration:
 // - checks if active arena should be sealed due to data above threshold
 // - rotates if needed
@@ -36,15 +31,8 @@ seal:
 		return
 	}
 
-	// ✅ Create transient context with configurable timeout
-	ctxUnblockWriterWait, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(ing.millisecondsUnblock)*time.Millisecond,
-	)
-	defer cancel() // Always clean up resources
-
-	// ✅ Wait for writers with timeout + adaptive backoff
-	if errWait := ing.waitForWritersCtx(ctxUnblockWriterWait, sealedArena); errWait != nil {
+	// Wait for writers with timeout + adaptive backoff
+	if errWait := ing.waitForWriters(sealedArena); errWait != nil {
 		ing.Registry.Inc(TErrDroppedSealedData) // ⚠️ Data in sealedArena is LOST, log and skip flush to avoid hang.
 
 		sealedArena.reset()
@@ -81,13 +69,7 @@ seal:
 		return
 	}
 
-	ctxUnblockWriterWait, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(ing.millisecondsUnblock)*time.Millisecond,
-	)
-	defer cancel()
-
-	if errWait := ing.waitForWritersCtx(ctxUnblockWriterWait, sealedArena); errWait != nil {
+	if errWait := ing.waitForWriters(sealedArena); errWait != nil {
 		ing.Registry.Inc(TErrDroppedSealedData)
 
 		sealedArena.reset()

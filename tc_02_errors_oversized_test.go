@@ -37,7 +37,7 @@ func Test_02_Ingestor_OversizeWrite(t *testing.T) {
 			},
 		),
 
-		ErrWriteMessageTooLarge,
+		errWriteMessageTooLarge,
 	)
 
 	cancel()

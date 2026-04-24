@@ -20,7 +20,7 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
-	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
+	if errWrite == errWriteMessageTooLarge { //nolint:errorlint
 		ing.Registry.Inc(TErrWriteMessageTooLarge)
 
 		return writeRegion{}, errWrite
@@ -54,13 +54,13 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 	if toReserve > ing.maxMessageSize {
 		return writeRegion{},
-			ErrWriteMessageTooLarge
+			errWriteMessageTooLarge
 	}
 
 	arena := ing.active.Load()
 	if arena == nil {
 		return writeRegion{},
-			ErrWriteNoActiveArena
+			errWriteNoActiveArena
 	}
 
 	arena.Enter()
@@ -69,7 +69,7 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 		arena.Leave()
 
 		return writeRegion{},
-			ErrWriteActiveArenaMismatch
+			errWriteActiveArenaMismatch
 	}
 
 	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
@@ -83,7 +83,7 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 		ing.signalFlush()
 
 		return writeRegion{},
-			ErrWriteSubRegionFull
+			errWriteSubRegionFull
 	}
 
 	offset, errReserve := ing.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
@@ -124,14 +124,14 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	region, errTryWrite = ing.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
+	if errTryWrite == errWriteSubRegionFull { //nolint:errorlint
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
 		if staleArena == nil || ing.isStopped.Load() {
 			ing.Registry.Inc(TErrWriteShuttingDown)
 
-			return ErrWriteShuttingDown
+			return errWriteShuttingDown
 		}
 
 		staleEpoch := staleArena.epoch.Load()
@@ -144,7 +144,7 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 			if ing.isStopped.Load() { // ← consumer is gone, bail out
 				ing.Registry.Inc(TErrWriteShuttingDown)
 
-				return ErrWriteShuttingDown
+				return errWriteShuttingDown
 			}
 
 			runtime.Gosched()

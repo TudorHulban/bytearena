@@ -16,7 +16,7 @@ func (*Ingestor) reserveBytes(cursor *atomic.Uint32, toReserve uint32, lower, up
 		// Check bounds: cur must be within [lower, limit] to reserve [cur, cur+n)
 		if cur < lower || cur > limit {
 			return 0,
-				ErrWriteSubRegionFull
+				errWriteSubRegionFull
 		}
 
 		next := cur + toReserve //nolint:gosec
