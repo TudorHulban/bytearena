@@ -10,9 +10,7 @@ var (
 	errWriteMessageTooLarge = errors.New("write: message too large")
 	errWriteShuttingDown    = errors.New("write: shutting down")
 
-	errWriterNoProgress  = errors.New("writer: no progress")
-	errDroppedSealedData = errors.New("dropped: sealed arena data")
-
+	errWriterNoProgress      = errors.New("writer: no progress")
 	errTimeoutWaitForWriters = errors.New("tick: timeout waiting for writers")
 )
 

@@ -18,54 +18,57 @@ import (
 )
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena500K-16         	93749011	        12.52 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena500K-16         	86624060	        13.35 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena500K-16        	68597154	        17.03 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena500K-16       	40804804	        28.13 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena1M-16           	92405222	        12.52 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena1M-16           	86389760	        13.36 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena1M-16          	68958054	        16.93 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena1M-16         	42919052	        27.01 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena2M-16           	91293220	        12.62 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena2M-16           	87100678	        13.28 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena2M-16          	67940094	        16.31 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena2M-16         	44942540	        25.58 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena500K-16         	22608476	        52.30 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena500K-16         	21087590	        57.35 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena500K-16        	22004563	        54.58 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena500K-16       	25020810	        48.14 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena1M-16           	21816625	        53.04 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena1M-16           	20764634	        57.45 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena1M-16          	21447463	        55.94 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena1M-16         	25580044	        46.72 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena2M-16           	22258192	        53.61 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena2M-16           	20540980	        58.11 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena2M-16          	20615106	        56.06 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena2M-16         	25865650	        43.84 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena500K-16         	22282778	        51.43 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena500K-16         	23382309	        53.18 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena500K-16        	23139889	        51.96 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena500K-16       	27041794	        44.81 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena1M-16           	23535033	        50.87 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena1M-16           	22540676	        53.00 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena1M-16          	23094290	        51.27 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena1M-16         	27673240	        42.70 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena2M-16           	23475544	        50.90 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena2M-16           	22041584	        53.25 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena2M-16          	23290218	        51.34 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena2M-16         	28598306	        40.80 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena500K-16         	25445060	        46.96 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena500K-16         	25537693	        47.07 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena500K-16        	25647045	        46.06 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena500K-16       	29034916	        41.31 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena1M-16           	25557015	        46.93 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena1M-16           	25223672	        47.06 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena1M-16          	26256078	        45.48 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena1M-16         	29744142	        39.00 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena2M-16           	25219716	        46.97 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena2M-16           	24980188	        47.09 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena2M-16          	25905141	        45.25 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena2M-16         	31345569	        37.63 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena500K-16         	92112229	        12.65 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena500K-16         	79682629	        13.95 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena500K-16        	68676219	        16.88 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena500K-16       	42497878	        27.02 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena1M-16           	85307738	        13.52 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena1M-16           	82265724	        14.27 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena1M-16          	64085607	        17.66 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena1M-16         	41840644	        27.73 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena2M-16           	80781772	        13.31 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena2M-16           	83094717	        14.02 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena2M-16          	67184761	        16.98 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena2M-16         	45147903	        26.53 ns/op	       0 B/op	       0 allocs/op
+
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena500K-16         	22969916	        52.62 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena500K-16         	20603295	        56.70 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena500K-16        	20969680	        55.37 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena500K-16       	24698155	        48.68 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena1M-16           	22359103	        52.67 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena1M-16           	20956827	        56.65 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena1M-16          	20993637	        56.39 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena1M-16         	25447803	        47.68 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena2M-16           	21941104	        52.54 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena2M-16           	21190464	        56.80 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena2M-16          	21357494	        56.24 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena2M-16         	25422028	        46.56 ns/op	       0 B/op	       0 allocs/op
+
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena500K-16         	23346560	        50.86 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena500K-16         	22507947	        52.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena500K-16        	23144041	        51.52 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena500K-16       	26671896	        44.95 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena1M-16           	23499807	        50.88 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena1M-16           	22016530	        53.12 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena1M-16          	22601294	        51.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena1M-16         	27335908	        42.20 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena2M-16           	23069248	        50.91 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena2M-16           	22575738	        52.99 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena2M-16          	22999663	        51.11 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena2M-16         	28422356	        42.00 ns/op	       0 B/op	       0 allocs/op
+
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena500K-16         	27401814	        46.69 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena500K-16         	25608570	        46.98 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena500K-16        	26206598	        45.80 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena500K-16       	29031273	        40.62 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena1M-16           	25388796	        46.59 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena1M-16           	25336291	        47.10 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena1M-16          	26006442	        45.71 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena1M-16         	30401931	        38.82 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena2M-16           	25559407	        46.65 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena2M-16           	25735082	        47.05 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena2M-16          	26310469	        45.23 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena2M-16         	31982463	        37.40 ns/op	       0 B/op	       0 allocs/op
 
 // go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem
 
@@ -75,6 +78,8 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	gomaxprocsValues := []int{1, 2, 3, 4}
 
 	for _, g := range gomaxprocsValues {
+		fmt.Println("")
+
 		for _, sizeArena := range sizesArena {
 			for _, sizeMessage := range sizesMessage {
 				b.Run(

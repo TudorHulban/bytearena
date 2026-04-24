@@ -33,7 +33,6 @@ func (ing *Ingestor) waitForWriters(a *arena) error {
 		if helpers.Nanotime() > deadline {
 			return errTimeoutWaitForWriters
 		}
-
 	}
 
 	return nil
