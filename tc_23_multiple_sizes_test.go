@@ -149,9 +149,13 @@ func percentile(sorted []int64, p float64) int64 {
 // rather than a regression in steady‑state performance.
 
 func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
-	gomaxprocsValues := []int{1, 2, 3, 4}
-	sizesMessage := []int{16, 64, 256, 1024}
-	sizesArena := []Size{Size500K, Size1M, Size2M}
+	gomaxprocsValues := []int{1, 2}
+	sizesMessage := []int{256, 1024}
+	sizesArena := []Size{Size1M}
+
+	// gomaxprocsValues := []int{1, 2, 3, 4}
+	// sizesMessage := []int{16, 64, 256, 1024}
+	// sizesArena := []Size{Size500K, Size1M, Size2M}
 
 	for _, g := range gomaxprocsValues {
 		for _, sizeArena := range sizesArena {
