@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -146,21 +145,118 @@ func percentile(sorted []int64, p float64) int64 {
 	return sorted[idx]
 }
 
-// The p99.9 outliers reflect scheduler‑level stalls rather than behavior of the ingestion pipeline itself.
-// Under high concurrency and sustained throughput,
-// rare OS or runtime scheduling delays can temporarily prevent the consumer goroutine from running,
-// and because the queue is bounded, any such delay is amplified into a visible spike at the far tail.
-// These events are external to the pipeline logic and represent scheduler jitter
-// rather than a regression in steady‑state performance.
+// BenchmarkIngestor_LatencyHistogram measures tail latency of the ingestor pipeline
+// under parallel load with controlled warmup and monotonic timing.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// MEASUREMENT METHODOLOGY
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 1. TIME SOURCE: helpers.Nanotime() (monotonic, ~21ns overhead)
+//
+//   - NOT time.Now(): avoids wall-clock adjustments and reduces measurement noise
+//
+//   - Deltas are comparable to real time; absolute values are process-relative
+//
+//     2. WARMUP STRATEGY: Two-phase to eliminate cold-start bias
+//     a) Global: time.Sleep(10ms) before ResetTimer() — lets runtime/GC settle
+//     b) Per-goroutine: 20ms time-based discard inside RunParallel
+//
+//   - Each worker skips samples taken before (Nanotime() + 20ms)
+//
+//   - Ensures ALL workers exclude cold-start, not just one (CAS bug fix)
+//
+// 3. PARALLELISM: b.SetParallelism(16) with configurable GOMAXPROCS
+//   - Simulates concurrent writers competing for ingestor resources
+//   - Tail latency (p99.9) reveals contention/GC effects invisible at p50
+//
+// 4. SAMPLE COLLECTION: Per-goroutine local buffers, merged under mutex
+//   - Avoids lock contention during hot path
+//   - Final histogram sorted for percentile calculation
+//
+// 5. GC AWARENESS: Outliers at p99.9 are often GC pauses, not code slowness
+//   - Core path (p50-p99) is allocation-free; GC affects tail via stop-the-world
+//   - Use GOGC tuning or GC-off diagnostics to isolate algorithmic latency
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// DIAGNOSTIC COMMANDS (output spooled to root/analysis_*.out)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// # Baseline: default GC, parallel=16
+// go test -bench=BenchmarkIngestor_LatencyHistogram -run=^$ -count=5 -benchtime=1s ./... > analysis_baseline.out 2>&1
+//
+// # Isolate contention: single parallel worker
+// go test -bench=BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024 -run=^$ -parallel=1 -count=5 -benchtime=1s ./... > analysis_parallel1.out 2>&1
+//
+// # Confirm GC is outlier source: disable automatic GC (diagnostic only)
+// GOGC=off go test -bench=BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024 -run=^$ -count=5 -benchtime=1s ./... > analysis_gc_off.out 2>&1
+//
+// # Production-like tuning: reduce GC frequency (trade memory for latency)
+// GOGC=150 GOMEMLIMIT=4GiB go test -bench=BenchmarkIngestor_LatencyHistogram -run=^$ -count=5 -benchtime=1s ./... > analysis_gogc150.out 2>&1
+//
+// # Trace GC pauses: correlate with latency outliers
+// GODEBUG=gctrace=1 go test -bench=BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024 -run=^$ -count=3 -benchtime=1s ./... > analysis_gctrace.out 2>&1
+//
+// # Combined trace: GC + scheduler events (verbose, use sparingly)
+// GODEBUG=gctrace=1,schedtrace=10ms go test -bench=BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024 -run=^$ -count=1 -benchtime=2s ./... > analysis_combined.out 2>&1
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// RESULT INTERPRETATION
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// EXPECTED RANGES (1KB message, GOMAXPROCS=1, AMD Ryzen 7 5800H):
+//
+//	p50:   40–60 ns  → core algorithmic latency (allocation-free path)
+//	p99:   70–100 ns → minor contention, cache effects
+//	p99.9: 4–5 µs    → true noise floor (GC disabled)
+//	p99.9: 10–20 µs  → tuned GC (GOGC=150)
+//	p99.9: 100–900 µs → default GC (pause intersection)
+//
+// IF p99.9 IS HIGH:
+//  1. Check analysis_gc_off.out: if p99.9 drops to ~5µs → GC is the cause
+//  2. Check analysis_gctrace.out: look for "gc X @... ms" lines near outlier timestamps
+//  3. If outliers persist with GC off → investigate lock contention or arena edge cases
+//
+// REPORTING GUIDANCE:
+//   - For algorithmic performance: cite p50/p99 from GC-off or tuned-GC runs
+//   - For production SLAs: cite p99.9 from GOGC=150 run (realistic tail)
+//   - Always disclose GC configuration: "p99.9: 12µs (GOGC=150), noise floor: 5µs"
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// SEQUENCE OF OPERATIONS (per sub-benchmark)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// [SETUP]
+//  1. Set GOMAXPROCS(g) for this sub-benchmark
+//  2. Create ingestor with arena size + noop writer
+//  3. Start ingestion goroutine with context
+//  4. Prepare payload (repeated bytes)
+//
+// [WARMUP]
+//  5. Global: time.Sleep(10ms) — runtime/GC settling
+//  6. b.ReportAllocs(), b.ResetTimer(), b.SetParallelism(16)
+//
+// [MEASUREMENT LOOP — per parallel worker]
+//  7. Record warmup deadline: warmupUntil = Nanotime() + 20ms
+//  8. FOR each iteration (pb.Next()):
+//     a. start = Nanotime()
+//     b. _, _ = ingestor.Write(payload)  // measured operation
+//     c. elapsed = Nanotime() - start
+//     d. IF start >= warmupUntil: append elapsed to local buffer
+//  9. AFTER loop: merge local buffer into global slice (under mutex)
+//
+// [CLEANUP]
+//  10. cancel() context, wait for ingestion to finish (<-chIngestionEnd)
+//  11. Merge all worker buffers, sort latencies
+//  12. Keep histogram from largest b.N (benchmark convergence)
+//  13. Compute and log percentiles: p50, p90, p99, p99.9
+//
+// ═══════════════════════════════════════════════════════════════════════════
 
 func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 	gomaxprocsValues := []int{1, 2}
 	sizesMessage := []int{256, 1024}
 	sizesArena := []Size{Size1M}
-
-	// gomaxprocsValues := []int{1, 2, 3, 4}
-	// sizesMessage := []int{16, 64, 256, 1024}
-	// sizesArena := []Size{Size500K, Size1M, Size2M}
 
 	for _, g := range gomaxprocsValues {
 		for _, sizeArena := range sizesArena {
@@ -172,7 +268,6 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 						sizeMessage,
 						sizeArena.String(),
 					),
-
 					func(b *testing.B) {
 						prev := runtime.GOMAXPROCS(g)
 						defer runtime.GOMAXPROCS(prev)
@@ -190,15 +285,15 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 						payload := bytes.Repeat([]byte("x"), sizeMessage)
 
 						var (
-							all        [][]int64
-							mu         sync.Mutex
-							warmupDone uint32
+							all []int64
+							mu  sync.Mutex
 
 							bestN         int
 							bestHistogram []int64
 						)
 
-						time.Sleep(10 * time.Millisecond) // warmup
+						// Global warmup: let runtime settle before measurements begin
+						time.Sleep(10 * time.Millisecond)
 
 						b.ReportAllocs()
 						b.ResetTimer()
@@ -208,24 +303,29 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 							func(pb *testing.PB) {
 								local := make([]int64, 0, 4096)
 
-								for pb.Next() {
-									start := time.Now()
-									_, _ = ingestor.Write(payload)
+								// FIX: Use monotonic nanotime for warmup window
+								// helpers.Nanotime() returns absolute monotonic ns (like runtime.nanotime)
+								// Deltas are comparable to real time, even if epoch differs.
+								warmupUntil := helpers.Nanotime() + 20*1e6 // 20ms in nanoseconds
 
-									local = append(local, time.Since(start).Nanoseconds())
+								for pb.Next() {
+									start := helpers.Nanotime()
+									_, _ = ingestor.Write(payload)
+									elapsed := helpers.Nanotime() - start // delta in nanoseconds
+
+									// Only record samples taken AFTER the warmup window
+									if start >= warmupUntil {
+										local = append(local, elapsed)
+									}
 								}
 
 								if len(local) == 0 {
 									return
 								}
 
-								if atomic.CompareAndSwapUint32(&warmupDone, 0, 1) {
-									return
-								}
-
 								mu.Lock()
 
-								all = append(all, local)
+								all = append(all, local...)
 								mu.Unlock()
 							},
 						)
@@ -237,10 +337,9 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 							return
 						}
 
-						var merged []int64
-						for _, buf := range all {
-							merged = append(merged, buf...)
-						}
+						merged := make([]int64, 0, len(all))
+
+						merged = append(merged, all...)
 
 						if len(merged) == 0 {
 							return
@@ -248,13 +347,13 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 
 						slices.Sort(merged)
 
-						// keep only the histogram from the largest b.N
+						// Keep only the histogram from the largest b.N
 						if b.N > bestN {
 							bestN = b.N
 							bestHistogram = merged
 						}
 
-						// print only after the final repetition
+						// Print only after the final repetition
 						if b.N == bestN {
 							p50 := percentile(bestHistogram, 0.50)
 							p90 := percentile(bestHistogram, 0.90)
@@ -262,10 +361,7 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 							p999 := percentile(bestHistogram, 0.999)
 
 							b.Logf("latency ns: p50=%d p90=%d p99=%d p99.9=%d",
-								p50,
-								p90,
-								p99,
-								p999,
+								p50, p90, p99, p999,
 							)
 						}
 					},

@@ -23,13 +23,14 @@ func (ing *Ingestor) waitForWriters(a *arena) error {
 			helpers.Pause(1)
 
 			spin++
+
 			continue // ← skip Nanotime entirely in the hot phase
 
 		case spin < 100:
 			runtime.Gosched()
 
 		default:
-			time.Sleep(5 * time.Microsecond)
+			time.Sleep(2 * time.Microsecond)
 		}
 
 		spin++
