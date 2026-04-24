@@ -21,6 +21,10 @@ func (ing *Ingestor) waitForWriters(a *arena) error {
 		switch {
 		case spin < 20:
 			helpers.Pause(1)
+
+			spin++
+			continue // ← skip Nanotime entirely in the hot phase
+
 		case spin < 100:
 			runtime.Gosched()
 
