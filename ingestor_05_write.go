@@ -12,32 +12,38 @@ import (
 //
 // It does NOT loop indefinitely and does NOT block.
 func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
+	var (
+		region        writeRegion
+		errWriteFirst error
+	)
+
 	// First attempt.
-	region, errWrite := ing.beginWrite(n)
-	if errWrite == nil {
+	region, errWriteFirst = ing.beginWrite(n)
+	if errWriteFirst == nil {
 		return region, nil
 	}
 
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
-	if errWrite == errWriteMessageTooLarge { //nolint:errorlint
+	if errWriteFirst == errWriteMessageTooLarge { //nolint:errorlint
 		ing.Registry.Inc(TErrWriteMessageTooLarge)
 
-		return writeRegion{}, errWrite
+		return writeRegion{}, errWriteFirst
 	}
 
-	ing.Registry.loadError(errWrite)
+	var errWriteSecond error
 
 	// Reload active arena — rotation may have occurred.
-	// Second attempt.
-	region, errWrite = ing.beginWrite(n)
-	if errWrite != nil {
-		ing.Registry.loadError(errWrite)
+	// Second attempt,
+	// also loads to error registry if error as final failure.
+	region, errWriteSecond = ing.beginWrite(n)
+	if errWriteSecond != nil {
+		ing.Registry.loadError(errWriteSecond)
 
-		return writeRegion{}, errWrite
+		return writeRegion{}, errWriteSecond
 	}
 
-	return region, errWrite
+	return region, nil
 }
 
 // beginWrite attempts to reserve n bytes in the current active arena.

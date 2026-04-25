@@ -30,7 +30,7 @@ func (ing *Ingestor) waitForWriters(a *arena) error {
 			runtime.Gosched()
 
 		default:
-			time.Sleep(2 * time.Microsecond)
+			time.Sleep(1 * time.Microsecond)
 		}
 
 		spin++
