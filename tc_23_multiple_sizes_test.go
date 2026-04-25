@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
+	"math/bits"
 	"runtime"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -127,24 +128,6 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 	}
 }
 
-func percentile(sorted []int64, p float64) int64 {
-	if len(sorted) == 0 {
-		return 0
-	}
-
-	idx := int(float64(len(sorted)-1) * p)
-
-	if idx < 0 {
-		idx = 0
-	}
-
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-
-	return sorted[idx]
-}
-
 // BenchmarkIngestor_LatencyHistogram measures tail latency of the ingestor pipeline
 // under parallel load with controlled warmup and monotonic timing.
 //
@@ -253,6 +236,25 @@ func percentile(sorted []int64, p float64) int64 {
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
+// p99.9 (ns) — Log Scale
+//    │
+// 100 ├─●──●──●──●──●──●──●──●──●──●──●──●──●──●──●  ← Low tail: 110ns–1.4µs
+//     │
+// 1K  ├─
+//     │
+// 10K ├──────────────●──●──●──●──●──●──●──●──●──●──●  ← Transition: 4–10µs
+//     │
+// 100K├──────────────────────────────────────────────●──●──●──●──●──●──●──●──●──●  ← High tail: 100–900µs
+//     │
+// 1M  ├─
+//     │
+// 10M ├────────────────────────────────────────────────────────────────●──●──●──●──●  ← Race detector: 5–9ms (ignore)
+//     │
+//     └──────────────────────────────────────────────────────────────────────────►
+//          baseline  gogc150  gc_off  gctrace  race
+
+// Histogram gives the caller-perceived latency.
+// The benchmark's ns/op gives system throughput and might be lower than caller-perceived latency.
 func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 	gomaxprocsValues := []int{1, 2}
 	sizesMessage := []int{256, 1024}
@@ -286,16 +288,19 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 
 						payload := bytes.Repeat([]byte("x"), sizeMessage)
 
-						var (
-							all []int64
-							mu  sync.Mutex
+						type histogram struct {
+							buckets [64]uint64
+						}
 
-							bestN         int
-							bestHistogram []int64
+						var (
+							globalHist histogram
+							mu         sync.Mutex
 						)
 
 						// Global warmup: let runtime settle before measurements begin
 						time.Sleep(10 * time.Millisecond)
+
+						runtime.GC()
 
 						b.ReportAllocs()
 						b.ResetTimer()
@@ -303,7 +308,7 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 
 						b.RunParallel(
 							func(pb *testing.PB) {
-								local := make([]int64, 0, 4096)
+								var localHist histogram
 
 								// FIX: Use monotonic nanotime for warmup window
 								// helpers.Nanotime() returns absolute monotonic ns (like runtime.nanotime)
@@ -318,17 +323,22 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 
 									// Only record samples taken AFTER the warmup window
 									if start >= warmupUntil {
-										local = append(local, elapsed)
+										idx := 0
+										if elapsed > 0 {
+											idx = bits.Len64(uint64(elapsed)) - 1
+											if idx >= len(localHist.buckets) {
+												idx = len(localHist.buckets) - 1
+											}
+										}
+
+										localHist.buckets[idx]++
 									}
 								}
 
-								if len(local) == 0 {
-									return
-								}
-
 								mu.Lock()
-
-								all = append(all, local...)
+								for i := range globalHist.buckets {
+									globalHist.buckets[i] += localHist.buckets[i]
+								}
 								mu.Unlock()
 							},
 						)
@@ -336,40 +346,58 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 						cancel()
 						<-chIngestionEnd
 
-						if len(all) == 0 {
+						total := uint64(0)
+						for _, c := range globalHist.buckets {
+							total += c
+						}
+
+						if total == 0 {
 							return
 						}
 
-						merged := make([]int64, 0, len(all))
+						p50 := percentileFromHistogram(globalHist.buckets, total, 0.50)
+						p90 := percentileFromHistogram(globalHist.buckets, total, 0.90)
+						p99 := percentileFromHistogram(globalHist.buckets, total, 0.99)
+						p999 := percentileFromHistogram(globalHist.buckets, total, 0.999)
 
-						merged = append(merged, all...)
-
-						if len(merged) == 0 {
-							return
-						}
-
-						slices.Sort(merged)
-
-						// Keep only the histogram from the largest b.N
-						if b.N > bestN {
-							bestN = b.N
-							bestHistogram = merged
-						}
-
-						// Print only after the final repetition
-						if b.N == bestN {
-							p50 := percentile(bestHistogram, 0.50)
-							p90 := percentile(bestHistogram, 0.90)
-							p99 := percentile(bestHistogram, 0.99)
-							p999 := percentile(bestHistogram, 0.999)
-
-							b.Logf("latency ns: p50=%d p90=%d p99=%d p99.9=%d",
-								p50, p90, p99, p999,
-							)
-						}
+						b.Logf("latency ns: p50=%d p90=%d p99=%d p99.9=%d",
+							p50, p90, p99, p999,
+						)
 					},
 				)
 			}
 		}
 	}
+}
+
+func percentileFromHistogram(buckets [64]uint64, total uint64, p float64) int64 {
+	target := uint64(float64(total) * p)
+	if target == 0 {
+		target = 1
+	}
+
+	var cummulative uint64
+
+	for i, c := range buckets {
+		cummulative = cummulative + c
+
+		if cummulative >= target {
+			if i == 0 {
+				return 1 // bucket 0 holds elapsed == 1 ns
+			}
+
+			if i == len(buckets)-1 {
+				return int64(1) << i // lower bound of the overflow bucket
+			}
+
+			low := int64(1) << i
+			high := int64(1) << (i + 1)
+			prevCum := cummulative - c
+			frac := float64(target-prevCum) / float64(c)
+
+			return low + int64(float64(high-low)*frac)
+		}
+	}
+
+	return int64(math.MaxInt64)
 }
