@@ -2,6 +2,7 @@ package bytearena
 
 import (
 	"context"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,6 +29,8 @@ func BenchmarkIngestor_Parallel(b *testing.B) {
 	time.Sleep(10 * time.Millisecond) // warmup
 
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
+
+	runtime.GC()
 
 	b.ReportAllocs()
 	b.SetParallelism(16)
@@ -71,6 +74,8 @@ func BenchmarkIngestor_Parallel_BytesWritten(b *testing.B) {
 	time.Sleep(10 * time.Millisecond) // warmup
 
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+	runtime.GC()
 
 	b.ReportAllocs()
 	b.SetParallelism(16)

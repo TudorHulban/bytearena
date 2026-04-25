@@ -4,6 +4,7 @@ package bytearena
 
 import (
 	"context"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -35,6 +36,7 @@ func BenchmarkArena_ConstantPayload(b *testing.B) {
 	payload := []byte(`{"level":"info","msg":"user login","user_id":123}`)
 
 	b.ReportAllocs()
+	runtime.GC()
 
 	start := time.Now()
 

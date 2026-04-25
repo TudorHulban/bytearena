@@ -103,8 +103,10 @@ func (ing *Ingestor) flushArenaPerRegion(a *arena) {
 		upper := ing.subRegions[ix].Upper
 
 		end := a.subRegionCursors[ix].value.Load()
-		if end < lower {
-			end = lower
+
+		// Skip empty sub-regions early (sparse-write optimization)
+		if end <= lower {
+			continue
 		}
 
 		if end > upper {

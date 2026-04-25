@@ -3,6 +3,7 @@ package bytearena
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -51,6 +52,8 @@ func BenchmarkIngestor_Noop_Parallel(b *testing.B) {
 
 	time.Sleep(10 * time.Millisecond) //warmup
 
+	runtime.GC()
+
 	b.ReportAllocs()
 	b.SetParallelism(16)
 	b.ResetTimer()
@@ -92,6 +95,8 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 	chIngestionEnd := ingestor.StartIngestion(ctx)
 
 	time.Sleep(10 * time.Millisecond) // warmup
+
+	runtime.GC()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -147,6 +152,8 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 				chIngestionEnd := ingestor.StartIngestion(ctx)
 
 				time.Sleep(10 * time.Millisecond) // warmup
+
+				runtime.GC()
 
 				b.ReportAllocs()
 				b.ResetTimer()
