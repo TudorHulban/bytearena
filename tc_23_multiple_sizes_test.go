@@ -18,64 +18,64 @@ import (
 )
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena500K-16         	92112229	        12.65 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena500K-16         	79682629	        13.95 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena500K-16        	68676219	        16.88 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena500K-16       	42497878	        27.02 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena1M-16           	85307738	        13.52 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena1M-16           	82265724	        14.27 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena1M-16          	64085607	        17.66 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena1M-16         	41840644	        27.73 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena2M-16           	80781772	        13.31 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena2M-16           	83094717	        14.02 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena2M-16          	67184761	        16.98 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena2M-16         	45147903	        26.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena500K-16         	92229417	        12.53 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena500K-16         	86429787	        13.30 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena500K-16        	71975257	        16.37 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena500K-16       	45828294	        27.08 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena1M-16           	92814968	        12.61 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena1M-16           	86055390	        13.50 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena1M-16          	67051242	        17.24 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena1M-16         	43304878	        27.42 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg16_arena2M-16           	94758631	        12.56 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg64_arena2M-16           	88774165	        13.33 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg256_arena2M-16          	69821870	        16.48 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs1_size_msg1024_arena2M-16         	46877703	        26.19 ns/op	       0 B/op	       0 allocs/op
 
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena500K-16         	22969916	        52.62 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena500K-16         	20603295	        56.70 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena500K-16        	20969680	        55.37 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena500K-16       	24698155	        48.68 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena1M-16           	22359103	        52.67 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena1M-16           	20956827	        56.65 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena1M-16          	20993637	        56.39 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena1M-16         	25447803	        47.68 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena2M-16           	21941104	        52.54 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena2M-16           	21190464	        56.80 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena2M-16          	21357494	        56.24 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena2M-16         	25422028	        46.56 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena500K-16         	22853656	        51.91 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena500K-16         	21227962	        55.32 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena500K-16        	21554841	        55.06 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena500K-16       	25082690	        44.32 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena1M-16           	23140822	        51.62 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena1M-16           	21333146	        56.63 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena1M-16          	21333662	        53.93 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena1M-16         	25986260	        45.52 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg16_arena2M-16           	23075481	        51.22 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg64_arena2M-16           	21069613	        56.95 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg256_arena2M-16          	21100280	        55.47 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs2_size_msg1024_arena2M-16         	27057748	        42.96 ns/op	       0 B/op	       0 allocs/op
 
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena500K-16         	23346560	        50.86 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena500K-16         	22507947	        52.61 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena500K-16        	23144041	        51.52 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena500K-16       	26671896	        44.95 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena1M-16           	23499807	        50.88 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena1M-16           	22016530	        53.12 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena1M-16          	22601294	        51.61 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena1M-16         	27335908	        42.20 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena2M-16           	23069248	        50.91 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena2M-16           	22575738	        52.99 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena2M-16          	22999663	        51.11 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena2M-16         	28422356	        42.00 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena500K-16         	23304505	        50.78 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena500K-16         	21876628	        52.60 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena500K-16        	23044642	        51.26 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena500K-16       	26887562	        44.60 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena1M-16           	23624174	        51.08 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena1M-16           	22417822	        51.11 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena1M-16          	23181934	        51.35 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena1M-16         	27693124	        42.26 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg16_arena2M-16           	23686021	        50.60 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg64_arena2M-16           	22384056	        53.07 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg256_arena2M-16          	23441305	        51.19 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs3_size_msg1024_arena2M-16         	28637572	        41.11 ns/op	       0 B/op	       0 allocs/op
 
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena500K-16         	27401814	        46.69 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena500K-16         	25608570	        46.98 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena500K-16        	26206598	        45.80 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena500K-16       	29031273	        40.62 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena1M-16           	25388796	        46.59 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena1M-16           	25336291	        47.10 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena1M-16          	26006442	        45.71 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena1M-16         	30401931	        38.82 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena2M-16           	25559407	        46.65 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena2M-16           	25735082	        47.05 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena2M-16          	26310469	        45.23 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena2M-16         	31982463	        37.40 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena500K-16         	26166066	        46.16 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena500K-16         	25621362	        46.51 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena500K-16        	26015052	        45.35 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena500K-16       	29597569	        40.25 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena1M-16           	25630144	        46.36 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena1M-16           	25141058	        46.63 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena1M-16          	26375868	        44.72 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena1M-16         	30625490	        38.59 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg16_arena2M-16           	25812825	        46.13 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg64_arena2M-16           	25723315	        45.88 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg256_arena2M-16          	26695551	        44.89 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_MultipleSizes/gomaxprocs4_size_msg1024_arena2M-16         	32059330	        37.15 ns/op	       0 B/op	       0 allocs/op
 
 // go test -run '^$' -bench '^BenchmarkIngestor_MultipleSizes$' -benchmem
 
 func BenchmarkIngestor_MultipleSizes(b *testing.B) {
+	gomaxprocsValues := []int{1, 2, 3, 4}
 	sizesMessage := []int{16, 64, 256, 1024}
 	sizesArena := []Size{Size500K, Size1M, Size2M}
-	gomaxprocsValues := []int{1, 2, 3, 4}
 
 	for _, g := range gomaxprocsValues {
 		fmt.Println("")
@@ -106,9 +106,10 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 
 						payload := bytes.Repeat([]byte("x"), sizeMessage)
 
+						runtime.GC()
+
 						b.ReportAllocs()
 						b.ResetTimer()
-
 						b.SetParallelism(16)
 
 						b.RunParallel(
@@ -256,9 +257,9 @@ func BenchmarkIngestor_MultipleSizes(b *testing.B) {
 // Histogram gives the caller-perceived latency.
 // The benchmark's ns/op gives system throughput and might be lower than caller-perceived latency.
 func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
-	gomaxprocsValues := []int{1, 2}
-	sizesMessage := []int{256, 1024}
-	sizesArena := []Size{Size1M}
+	gomaxprocsValues := []int{1, 2, 3, 4}
+	sizesMessage := []int{16, 64, 256, 1024}
+	sizesArena := []Size{Size500K, Size1M, Size2M}
 
 	for _, g := range gomaxprocsValues {
 		fmt.Println("")
@@ -401,3 +402,202 @@ func percentileFromHistogram(buckets [64]uint64, total uint64, p float64) int64 
 
 	return int64(math.MaxInt64)
 }
+
+// Results:
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena500K-16         	22472245	        53.78 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=24 p90=31 p99=57 p99.9=63
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=24 p90=31 p99=58 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena500K-16         	21815481	        54.97 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=25 p90=36 p99=61 p99.9=63
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=25 p90=39 p99=61 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena500K-16        	20290210	        59.66 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=30 p90=57 p99=63 p99.9=99
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=33 p90=58 p99=63 p99.9=108
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena500K-16       	17173174	        71.94 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=47 p90=61 p99=87 p99.9=416929
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=48 p90=61 p99=103 p99.9=660100
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena1M-16           	22160406	        55.20 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=24 p90=33 p99=60 p99.9=63
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=25 p90=45 p99=62 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena1M-16           	21371499	        56.14 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=26 p90=51 p99=62 p99.9=63
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=26 p90=50 p99=62 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena1M-16          	19587306	        61.56 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=39 p90=59 p99=63 p99.9=124
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=39 p90=59 p99=63 p99.9=124
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena1M-16         	16449535	        73.40 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=48 p90=62 p99=116 p99.9=7281
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=48 p90=62 p99=117 p99.9=4025
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena2M-16           	22551214	        53.92 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg16_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=24 p90=32 p99=59 p99.9=61
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=24 p90=31 p99=59 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena2M-16           	21567256	        55.36 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg64_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=25 p90=44 p99=62 p99.9=63
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=25 p90=45 p99=62 p99.9=63
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena2M-16          	19803994	        60.63 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg256_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=36 p90=58 p99=63 p99.9=117
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=37 p90=58 p99=63 p99.9=119
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena2M-16         	16468500	        72.64 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs1_size_msg1024_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=48 p90=62 p99=116 p99.9=276
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=48 p90=62 p99=116 p99.9=368
+
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena500K-16         	23036830	        52.29 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=86 p90=122 p99=218 p99.9=254
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=85 p90=122 p99=222 p99.9=370
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena500K-16         	20047348	        61.15 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=98 p90=126 p99=242 p99.9=487
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=98 p90=126 p99=243 p99.9=503
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena500K-16        	20615682	        58.86 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=93 p90=124 p99=237 p99.9=911979
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=94 p90=124 p99=237 p99.9=1042943
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena500K-16       	18743623	        62.64 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=97 p90=125 p99=251 p99.9=477124
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=96 p90=125 p99=249 p99.9=484733
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena1M-16           	23322960	        52.90 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=83 p90=121 p99=220 p99.9=253
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=86 p90=122 p99=222 p99.9=282
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena1M-16           	20105034	        59.89 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=98 p90=126 p99=242 p99.9=384
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=97 p90=126 p99=241 p99.9=416
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena1M-16          	20819817	        58.76 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=91 p90=125 p99=240 p99.9=816
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=91 p90=125 p99=242 p99.9=925
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena1M-16         	19553530	        61.13 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=97 p90=125 p99=245 p99.9=799998
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=96 p90=124 p99=242 p99.9=814586
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena2M-16           	23323413	        52.59 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg16_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=82 p90=124 p99=253 p99.9=1000
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=86 p90=122 p99=221 p99.9=359
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena2M-16           	20387143	        60.71 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg64_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=98 p90=127 p99=242 p99.9=332
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=98 p90=126 p99=242 p99.9=440
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena2M-16          	20709927	        59.44 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg256_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=93 p90=124 p99=235 p99.9=499
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=92 p90=126 p99=244 p99.9=701
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena2M-16         	19695610	        61.74 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs2_size_msg1024_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=97 p90=132 p99=246 p99.9=1003267
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=97 p90=137 p99=247 p99.9=1066984
+
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena500K-16         	23787738	        48.16 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=117 p90=225 p99=253 p99.9=701
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=113 p90=221 p99=253 p99.9=510
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena500K-16         	23320734	        51.12 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=117 p90=224 p99=253 p99.9=528
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=116 p90=224 p99=253 p99.9=843
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena500K-16        	22745233	        52.85 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=121 p90=228 p99=254 p99.9=997924
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=125 p90=230 p99=254 p99.9=1311054
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena500K-16       	22786059	        54.25 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=110 p90=218 p99=449 p99.9=477787
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=113 p90=223 p99=500 p99.9=486848
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena1M-16           	23809051	        50.83 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=126 p90=229 p99=253 p99.9=327
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=119 p90=226 p99=253 p99.9=498
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena1M-16           	24258440	        47.31 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=109 p90=215 p99=254 p99.9=991
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=108 p90=211 p99=252 p99.9=675
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena1M-16          	24303978	        53.09 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=118 p90=226 p99=254 p99.9=5248
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=131 p90=231 p99=254 p99.9=3882
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena1M-16         	23327580	        52.54 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=103 p90=191 p99=253 p99.9=797253
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=111 p90=219 p99=255 p99.9=863791
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena2M-16           	24668467	        50.83 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg16_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=126 p90=230 p99=254 p99.9=819
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=119 p90=226 p99=253 p99.9=510
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena2M-16           	25629139	        47.74 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg64_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=108 p90=212 p99=252 p99.9=420
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=110 p90=215 p99=252 p99.9=542
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena2M-16          	22794222	        52.84 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg256_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=129 p90=231 p99=254 p99.9=1056
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=130 p90=231 p99=254 p99.9=868
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena2M-16         	23760114	        51.73 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs3_size_msg1024_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=109 p90=214 p99=253 p99.9=1233519
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=110 p90=217 p99=254 p99.9=1312579
+
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena500K-16         	26182554	        46.41 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=166 p90=240 p99=342 p99.9=664
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=168 p90=240 p99=332 p99.9=587
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena500K-16         	25862274	        46.63 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=167 p90=240 p99=328 p99.9=2035
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=169 p90=240 p99=340 p99.9=1287
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena500K-16        	26075492	        46.17 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=159 p90=239 p99=369 p99.9=1172724
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=161 p90=239 p99=391 p99.9=1283565
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena500K-16       	25076586	        47.82 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena500K-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=166 p90=242 p99=6255 p99.9=480427
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=169 p90=242 p99=7481 p99.9=483815
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena1M-16           	26199087	        46.44 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=172 p90=241 p99=390 p99.9=910
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=169 p90=240 p99=334 p99.9=528
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena1M-16           	26750539	        44.92 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=161 p90=238 p99=255 p99.9=503
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=162 p90=238 p99=255 p99.9=760
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena1M-16          	24150784	        46.04 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=183 p90=246 p99=459 p99.9=1380557
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=162 p90=239 p99=371 p99.9=1399246
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena1M-16         	25507531	        46.20 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena1M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=168 p90=242 p99=461 p99.9=831738
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=168 p90=242 p99=464 p99.9=853782
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena2M-16           	26934801	        44.96 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg16_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=161 p90=238 p99=255 p99.9=499
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=162 p90=238 p99=255 p99.9=511
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena2M-16           	26201598	        46.64 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg64_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=168 p90=240 p99=300 p99.9=503
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=169 p90=240 p99=324 p99.9=546
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena2M-16          	25178073	        47.79 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg256_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=170 p90=241 p99=379 p99.9=1648
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=171 p90=241 p99=396 p99.9=1437
+// BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena2M-16         	24708711	        46.68 ns/op	       0 B/op	       0 allocs/op
+// --- BENCH: BenchmarkIngestor_LatencyHistogram/gomaxprocs4_size_msg1024_arena2M-16
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=178 p90=244 p99=458 p99.9=1351741
+//     /mnt/tmpfs.ramdisk/bytearena/tc_23_multiple_sizes_test.go:364: latency ns: p50=175 p90=243 p99=432 p99.9=1396627
