@@ -20,11 +20,16 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		return
 	}
 
+	// Cache cursors once to avoid double atomic load per sub-region.
+	// [8] matches the round-robin mask (& 7) in beginWrite.
+	var cursors [8]uint32
+
 	// Pre-calculate total used bytes across all sub-regions
 	var totalUsed uint32
 
 	for ix := range ing.subRegions {
 		cursorVal := a.subRegionCursors[ix].value.Load()
+		cursors[ix] = cursorVal // ← Cache for second loop (zero alloc, stack-only)
 		lower := ing.subRegions[ix].Lower
 
 		// Clamp cursor to region bounds
@@ -47,14 +52,13 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 
 	// Copy each sub-region's written slice in order.
 	for ix := range ing.subRegions {
-		cursorVal := a.subRegionCursors[ix].value.Load()
 		lower := ing.subRegions[ix].Lower
 		upper := ing.subRegions[ix].Upper
 
 		// Clamp and compute written range
 		start := lower
 
-		end := cursorVal
+		end := cursors[ix] // ← Use cached value (no atomic load)
 		if end < start {
 			end = start
 		}

@@ -259,6 +259,8 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 	sizesArena := []Size{Size1M}
 
 	for _, g := range gomaxprocsValues {
+		fmt.Println("")
+
 		for _, sizeArena := range sizesArena {
 			for _, sizeMessage := range sizesMessage {
 				b.Run(
@@ -311,6 +313,7 @@ func BenchmarkIngestor_LatencyHistogram(b *testing.B) {
 								for pb.Next() {
 									start := helpers.Nanotime()
 									_, _ = ingestor.Write(payload)
+
 									elapsed := helpers.Nanotime() - start // delta in nanoseconds
 
 									// Only record samples taken AFTER the warmup window
