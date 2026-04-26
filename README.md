@@ -301,3 +301,100 @@ If horizontal scaling is needed, assess multiple single-core instances rather th
 
 Rationale: `Multi-core` execution introduces cache-coherency overhead on atomic operations (26% of CPU time), inflating tail latency by ~3,000×.  
 `Single-core` execution eliminates this overhead while maintaining excellent throughput (~16M ops/sec at 62 ns/op).
+
+## 13. Rationale for an ingestor‑based architecture  
+
+Package ingestor implements a high‑throughput, allocation‑free logging and
+telemetry ingestion pipeline. The design intentionally differs from traditional
+per‑call logging libraries (e.g., zerolog, zap, slog), which emit one formatted
+log entry per call and write directly to an io.Writer.  
+It is appropriate for systems that require consistent performance under load and clear separation between ingestion and output responsibilities.
+
+The author identified below advantages for this architecture:
+
+1. Allocation‑free ingestion
+   The ingestor writes log records directly into preallocated arena memory.
+   No per‑record []byte allocations occur on the hot path. This eliminates
+   transient heap objects, reduces GC load, and provides stable, predictable
+   latency under sustained concurrency.
+
+2. Decoupled ingestion and output
+   Traditional loggers perform I/O coordination in the caller’s goroutine.  
+   This couples application latency to logging cost.
+   The ingestor separates these concerns: writers append to memory only, while
+   a dedicated reader processes and flushes the inactive arena asynchronously.
+
+3. Sharded concurrency model
+   The ingestion arena is partitioned into independent shards. Writers operate
+   on distinct shards without contending on shared state. This avoids the
+   serialization and cacheline contention inherent in per‑call logging models,
+   enabling throughput to scale with available CPU cores.
+
+4. Deterministic double buffering
+   The system maintains two arenas: one active for writers and one inactive for
+   readers. A controlled arena flip provides a clear, race‑free snapshot
+   boundary. Readers always operate on a stable, immutable arena, simplifying
+   correctness and eliminating the need for fine‑grained synchronization.
+
+5. Throughput and latency characteristics
+   By removing per‑call allocations, avoiding shared writer coordination, and
+   deferring formatting and output to a separate stage, the ingestor achieves
+   significantly higher throughput and more deterministic latency than
+   traditional logger designs. This architecture is intended for workloads
+   where logging volume is high, concurrency is significant, and predictable
+   performance is required.  
+
+## 14. Design Lineage  
+
+The ingestion architecture in this package draws on several established systems‑engineering techniques, each originating from different domains.  
+This section documents the conceptual lineage of these designs.
+
+### Double‑buffered memory regions
+
+Double buffering is a long‑standing technique used in graphics pipelines, real‑time DSP systems, and high‑frequency trading engines to provide a stable snapshot boundary between producers and consumers. The ingestor adopts this principle at the arena level: one arena is active for writers while the other is reserved for readers and flushing. This ensures deterministic behavior and eliminates the need for fine‑grained synchronization.
+
+### Sharded concurrency
+
+Sharding is widely used in high‑performance systems to reduce contention by partitioning work across independent execution paths. Examples include Redis I/O threading, lock‑free hash maps, and multi‑producer ring buffers. The ingestor applies this concept by dividing each arena into multiple independent shards, allowing concurrent writers to operate without contending on shared state.
+
+### Preallocated, arena‑based memory
+
+Arena allocation is common in game engines, embedded systems, and low‑latency trading platforms where predictable memory behavior is required. By writing directly into preallocated arenas, the ingestor avoids per‑record allocations and eliminates transient heap objects, resulting in stable latency and minimal GC overhead.
+
+### Epoch‑based coordination
+
+Epoch flipping is a technique found in Read‑Copy‑Update (RCU) systems and some lock‑free memory reclamation strategies. The ingestor uses a simplified form of epoch coordination: an atomic flip switches the active arena, providing a clear and race‑free boundary between ingestion and flushing phases.
+
+### Writers‑in‑flight tracking
+
+Tracking active writers is a concept derived from hazard pointers and epoch‑based reclamation. In the ingestor, this mechanism ensures that an arena is not reclaimed or flushed while writers are still operating within it, preserving correctness without requiring locks.  
+
+### Relation to RCU (Read‑Copy‑Update) systems
+
+RCU uses epoch‑based coordination to provide readers with a stable,
+immutable view while writers update data in parallel. The ingestor adopts
+the same conceptual boundary: an atomic arena flip creates a new epoch,
+ensuring that readers always operate on a consistent snapshot without
+requiring locks or fine‑grained synchronization.
+
+### Relation to the LMAX Disruptor systems
+
+The Disruptor popularized sharded, cache‑friendly concurrency using a
+preallocated ring buffer and sequence‑based coordination. The ingestor
+shares the emphasis on preallocated memory and false‑sharing avoidance,
+but differs fundamentally: it uses two global arenas instead of a single
+cyclic buffer, and it provides deterministic snapshot boundaries rather
+than continuous sequencing.
+
+### Relation to kernel ring buffers systems
+
+Operating systems often use fixed‑size ring buffers for logging and
+tracing, emphasizing predictable memory behavior and minimal overhead.
+The ingestor follows the same principle of allocation‑free writes into
+preallocated memory, but extends it with sharded concurrency and a
+double‑buffered design that cleanly separates ingestion from flushing.
+
+The ingestor does not replicate any of these systems directly. Instead, it
+synthesizes their underlying principles — epoch flipping, preallocated memory,
+sharded concurrency, and stable snapshots — into a design tailored for
+high‑throughput, allocation‑free log and telemetry ingestion.
