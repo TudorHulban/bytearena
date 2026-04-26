@@ -51,13 +51,23 @@ Internally, `Write` delegates through:
 Write → write → tryWrite → beginWrite → reserveBytes → deffered end write — signals end of a write by decrementing the number of writers
 ```
 
+### Direct copy to the arena
+
+Direct copies would request a reservation and write directly to the arena memory thus saving allocations.
+
+```go
+region, _ := ingestor.TryWrite(pass message number of bytes)
+copy(region.Buf(), message)
+ingestor.EndWrite(region)
+```
+
 ## 4. Producer Write Algorithm
 
 For each ingestion:
 
 1. Load the active arena pointer atomically.
 2. Call `Enter()` — increments `numberWriters` on that arena.
-3. Re‑check the active pointer; if it has rotated away since step 1, call `Leave()` and return `ErrWriteActiveArenaMismatch`.
+3. Re‑check the active pointer; if it has rotated away since step 1, call `Leave()` and return `errWriteActiveArenaMismatch`.
 4. Select a sub‑region via round‑robin: `regionIdx = counterRequests.Add(1) & 7`.
 5. Run a CAS loop on `subRegionCursors[regionIdx]` to atomically advance the cursor by `N` bytes and obtain a unique region `[offset, offset+N)`.
 6. Copy the payload directly into `arena.buf[offset : offset+N]`.
@@ -84,7 +94,7 @@ for {
 
 ### Producer asking for unavailable space
 
-If `N > maxMessageSize` (one sub‑region's capacity), the request is rejected immediately with `ErrWriteMessageTooLarge` — no CAS is attempted.
+If `N > maxMessageSize` (one sub‑region's capacity), the request is rejected immediately with `errWriteMessageTooLarge` — no CAS is attempted.
 
 If the CAS loop determines the cursor is beyond the sub‑region limit:
 
@@ -92,7 +102,7 @@ If the CAS loop determines the cursor is beyond the sub‑region limit:
 - A non‑blocking flush signal is sent to the consumer.
 - `ErrWriteSubRegionFull` is returned to the internal caller.
 
-`Write` does not surface `ErrWriteSubRegionFull` to callers. Instead it captures the current epoch and yields via `runtime.Gosched()` until the consumer rotates the arena or resets it (epoch increment), then retries once. See §9a.  
+`Write` does not surface `errWriteSubRegionFull` to callers. Instead it captures the current epoch and yields via `runtime.Gosched()` until the consumer rotates the arena or resets it (epoch increment), then retries once. See §9a.  
 
 Near the end of an arena many producers may attempt reservations concurrently. Some of these reservations may exceed the arena size and fail. This is expected behavior. Once the consumer seals the arena and rotates to the next one, producers will automatically obtain space in the new arena.
 
@@ -100,32 +110,16 @@ Near the end of an arena many producers may attempt reservations concurrently. S
 
 The consumer's `tick()` is driven by three event sources:
 
-1. A configurable periodic ticker (default 50 ms, `WithTickMilliseconds`).
-2. A non‑blocking flush channel (`chFlush`) signaled by producers on rollback.
-3. Context cancellation (initiates shutdown).
+1. A configurable periodic ticker for normal traffic (`WithTickThresholdMilliseconds`).
+2. A configurable periodic ticker for low traffic (`WithTickIfDataMilliseconds`).
+3. A non‑blocking flush channel (`chFlush`) signaled by producers on rollback.
+4. Context cancellation (initiates shutdown).
 
-On each tick, `shouldSeal` is evaluated:
-
-```go
-func (m *Ingestor) shouldSeal(a *arena) bool {
-    if a.rollbackCounter.Load() > 0 {
-        return true
-    }
-    for ix, threshold := range m.arenaSealThresholds {
-        if a.subRegionCursors[ix].value.Load() >= threshold {
-            return true
-        }
-    }
-    return false
-}
-```
-
-If `shouldSeal` returns false the tick is a no‑op — a quiet arena sits undisturbed.
-
-Two signals trigger a seal:
+Signals that trigger a seal:
 
 - **Cursor threshold** — any sub‑region cursor reaches a pre‑computed watermark (default 90% of sub‑region capacity). Thresholds are computed once at startup as a `[8]uint32` array; no arithmetic at runtime.
 - **Rollback pressure** — at least one producer failed to reserve space, indicating the arena is under pressure.
+- **Data existence** for low traffic periods.
 
 ## 6. Sealing Protocol
 
@@ -146,7 +140,7 @@ After sealing arena X the consumer calls `waitForWritersCtx`, which blocks until
 |---|---|
 | < 20 | `PAUSE` instruction (x86 hardware hint) |
 | < 100 | `runtime.Gosched()` |
-| ≥ 100 | `time.Sleep(5 µs)` |
+| ≥ 100 | `time.Sleep(1 µs)` |
 
 The wait is wrapped in a context with a configurable timeout (default 50 ms, `WithUnblockMilliseconds`). If the timeout expires before all writers drain, the sealed data is dropped, `TErrDroppedSealedData` is recorded, and the arena is reset. This prioritizes ingestor liveness over durability.
 
@@ -181,7 +175,7 @@ Back‑pressure is therefore absorbed as scheduler yields inside `Write`, invisi
 
 ### b. Data Loss on Writer Drain Timeout
 
-When `waitForWritersCtx` times out:
+When `waitForWriters` times out:
 
 - The sealed arena is reset without flushing.
 - Any buffered data is dropped.
@@ -260,19 +254,28 @@ Without this separation, writes to adjacent atomics cause MESI coherence traffic
 
 On multi‑socket machines, producers on socket 1 writing to arena memory allocated on socket 0 pay a cross‑NUMA penalty on every access. Explicit NUMA‑aware allocation (`numactl` or `mmap` with NUMA policy) is planned for a future release.
 
-## 12. Benchmarks
+## 12. Benchmarks and tests
 
-Benchmarks were run on Rocky 10. They measure end‑to‑end ingestion time including asynchronous flush completion, using a zero‑cost writer to isolate ingestion overhead from I/O.
+Benchmarks measure most times end‑to‑end ingestion time including asynchronous flush completion, using a zero‑cost writer to isolate ingestion overhead from I/O.
 
-```text
-BenchmarkIngestor_Parallel-16    41500706    29.62 ns/op    8.631 Gb/s    0 B/op
-```
+### 1. Operating system
 
-- Payload: 32 bytes (fixed, to isolate allocator and contention effects).
-- Parallelism: 16 goroutines (fixed, to simulate high contention independent of core count).
-- The stabilization detector waits until the total written byte counter stops changing before recording results, ensuring all async flushes have completed.
+Benchmarks were run on Rocky 10.
 
-### Single Core
+### 2. Payload
+
+Payload used in most cases is  32 bytes (fixed, to isolate allocator and contention effects).
+
+### 3. Parallelism
+
+Parallelism used is 16 with most seminificative GOMAXPROCS values 1 and 2.  
+The jump between GOMAXPROCS = 1 and GOMAXPROCS = 2 helps understand the system behavior with even higher values.
+
+### 4. Test Stabilization
+
+Some tests use a stabilization detector that waits until the total written byte counter stops changing before recording results, ensuring all async flushes have completed.
+
+### 5. Single Core
 
 For latency-critical deployments of the bytearena ingestor:
 
