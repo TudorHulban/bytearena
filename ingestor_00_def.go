@@ -35,25 +35,13 @@ type Ingestor struct { //nolint:govet
 	// ── Cache line 0 ─────────────────────────────── Hot ──
 	// Producers read this atomically on every write.
 	active atomic.Pointer[arena]
-	_      [56]byte
+	_      [55]byte
 
 	// ── Cache line 1 ─────────────────────────────── Hot ──
 	counterRequests atomic.Uint64
 	_               [56]byte
 
-	// ── Cache line 2 ─────────────────────────────── Hot ──
-	// atomic.Bool is backed by uint32 (4 B); withTelemetry
-	// is read in the same hot path, so it shares this line.
-	isStopped atomic.Bool
-
-	// Allocate isolated buffer (no memory aliasing).
-	// Used with WithIsolatedBufferFlusher.
-	flushScratch []byte // 24 bytes
-
-	withTelemetry bool
-	_             [35]byte // should be 59 if moving flushScratch to own cache line
-
-	// ── Cache line 3 ─────────────────────────── Cold / IO ──
+	// ── Cache line 2 ─────────────────────────── Cold / IO ──
 	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
 	writer          io.Writer
 	writerTelemetry io.Writer
@@ -61,21 +49,34 @@ type Ingestor struct { //nolint:govet
 	flusher         func(a *arena)
 	chFlush         chan struct{}
 
-	// ── Cache line 4 ──────────────────────── Cold / Arena ──
+	// ── Cache line 3 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
-	arenaFirst               *arena
-	arenaSecond              *arena
-	arenaSealThresholds      [8]uint32
-	arenaSize                uint32
-	maxMessageSize           uint32
-	arenaSealPercentage      uint32
-	millisecondsTickInterval uint16
-	millisecondsUnblock      uint16
+	arenaFirst             *arena
+	arenaSecond            *arena
+	arenaSealThresholds    [8]uint32
+	arenaSize              uint32
+	maxMessageSize         uint32
+	arenaSealPercentage    uint32
+	millisecondsTickIfData uint16
+	millisecondsUnblock    uint16
 
-	// ── Cache line 5+ ─────────────────────────────── Cold ──
-	Registry   ErrorsRegistry
-	Metrics    Metrics
+	// ── Cache line 4 ─────────────────────── Cold / Consumer ──
+	// flushScratch written every flush cycle (consumer-only).
+	// Isolated here so flush writes never dirty the hot producer lines (0–2).
+	// millisecondsTickThreshold co-located: same cold init-time access pattern.
+	// 24 + 1 + 39 = 64 B exact.
+	flushScratch              []byte // 24 bytes
+	millisecondsTickThreshold uint8  //  1 byte
+	withTelemetry             bool   // 1 byte
+	_                         [38]byte
+
+	// ── Cache line 5 ─────────────────────── Cold / SubRegions ──
+	// Read-only after init. 8×{Lower,Upper uint32} = 64 B exact.
 	subRegions [8]subRegion
+
+	// ── Cache line 6+ ──────────────────────────────── Cold ──
+	Registry ErrorsRegistry // 10×64 = 640 B, internally cache-line padded
+	Metrics  Metrics        //         16 B
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -98,9 +99,10 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		arenaSize:      arenaSize,
 		maxMessageSize: regionSize,
 
-		arenaSealPercentage:      90,
-		millisecondsTickInterval: 50,
-		millisecondsUnblock:      50,
+		arenaSealPercentage:       90,
+		millisecondsTickIfData:    1000,
+		millisecondsTickThreshold: 50,
+		millisecondsUnblock:       50,
 	}
 
 	result.flusher = result.flushArenaPerRegion
@@ -156,10 +158,15 @@ func (ing *Ingestor) StartIngestion(ctx context.Context) <-chan struct{} {
 //
 // This is only the skeleton — flushing and thresholds are implemented elsewhere.
 func (ing *Ingestor) consumerLoop(ctx context.Context) {
-	ticker := time.NewTicker(
-		time.Duration(ing.millisecondsTickInterval) * time.Millisecond,
+	tickerThreshold := time.NewTicker(
+		time.Duration(ing.millisecondsTickThreshold) * time.Millisecond,
 	)
-	defer ticker.Stop()
+	defer tickerThreshold.Stop()
+
+	tickerIfData := time.NewTicker(
+		time.Duration(ing.millisecondsTickIfData) * time.Millisecond,
+	)
+	defer tickerIfData.Stop()
 
 	chDone := ctx.Done() // Hoist the channel helps the compiler optimize the select case.
 
@@ -167,17 +174,19 @@ func (ing *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			ing.isStopped.Store(true)
 			ing.flushOnShutdown()
 
 			return
 
-		case <-ticker.C:
-			ing.tick()
+		case <-tickerThreshold.C:
+			ing.tickThreshold()
 
 			// consumerLoop gets a third case:
 		case <-ing.chFlush:
-			ing.tick() // same seal/wait/flush/reset as ticker path
+			ing.tickThreshold() // same seal/wait/flush/reset as ticker path
+
+		case <-tickerIfData.C:
+			ing.tickIfData()
 		}
 	}
 }

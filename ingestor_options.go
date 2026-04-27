@@ -23,13 +23,25 @@ func WithSealPercentage(percentage uint32) Options {
 	}
 }
 
-func WithTickMilliseconds(interval uint16) Options {
+func WithTickThresholdMilliseconds(interval uint8) Options {
 	return func(i *Ingestor) error {
 		if interval == 0 {
 			return errors.New("tick value cannot be zero")
 		}
 
-		i.millisecondsTickInterval = interval
+		i.millisecondsTickThreshold = interval
+
+		return nil
+	}
+}
+
+func WithTickIfDataMilliseconds(interval uint16) Options {
+	return func(i *Ingestor) error {
+		if interval == 0 {
+			return errors.New("tick value cannot be zero")
+		}
+
+		i.millisecondsTickIfData = interval
 
 		return nil
 	}

@@ -111,12 +111,12 @@ func Test_ManyRotations_01_OutputValidation(t *testing.T) {
 				} else {
 					failedWrites.Add(1)
 
-					if errors.Is(errWrite, ErrWriteMessageTooLarge) {
+					if errors.Is(errWrite, errWriteMessageTooLarge) {
 						t.Logf(
 							"Message too large - Expected sometimes with random sizes: %v",
 							errWrite,
 						)
-					} else if errors.Is(errWrite, ErrWriteSubRegionFull) {
+					} else if errors.Is(errWrite, errWriteSubRegionFull) {
 						t.Logf(
 							"Write arena full - Expected during high pressure: %v",
 							errWrite,

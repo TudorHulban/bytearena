@@ -89,7 +89,7 @@ func TestReservationAtBoundary(t *testing.T) {
 	// Expect failure: arena physically cannot accept more data
 	require.ErrorIs(t,
 		errExtra,
-		ErrWriteSubRegionFull,
+		errWriteSubRegionFull,
 
 		"after filling all 800 bytes, 1-byte write should fail with ErrWriteArenaFull",
 	)

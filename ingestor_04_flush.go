@@ -1,10 +1,5 @@
 package bytearena
 
-import (
-	"context"
-	"time"
-)
-
 // Flushers for sealed arena contents using the provided writer function.
 //
 // The writer receives:
@@ -25,11 +20,16 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		return
 	}
 
+	// Cache cursors once to avoid double atomic load per sub-region.
+	// [8] matches the round-robin mask (& 7) in beginWrite.
+	var cursors [8]uint32
+
 	// Pre-calculate total used bytes across all sub-regions
 	var totalUsed uint32
 
 	for ix := range ing.subRegions {
 		cursorVal := a.subRegionCursors[ix].value.Load()
+		cursors[ix] = cursorVal // ← Cache for second loop (zero alloc, stack-only)
 		lower := ing.subRegions[ix].Lower
 
 		// Clamp cursor to region bounds
@@ -52,14 +52,13 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 
 	// Copy each sub-region's written slice in order.
 	for ix := range ing.subRegions {
-		cursorVal := a.subRegionCursors[ix].value.Load()
 		lower := ing.subRegions[ix].Lower
 		upper := ing.subRegions[ix].Upper
 
 		// Clamp and compute written range
 		start := lower
 
-		end := cursorVal
+		end := cursors[ix] // ← Use cached value (no atomic load)
 		if end < start {
 			end = start
 		}
@@ -82,7 +81,7 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 		}
 
 		if bytesWritten == 0 {
-			ing.Registry.loadError(ErrWriterNoProgress)
+			ing.Registry.loadError(errWriterNoProgress)
 
 			return
 		}
@@ -104,8 +103,10 @@ func (ing *Ingestor) flushArenaPerRegion(a *arena) {
 		upper := ing.subRegions[ix].Upper
 
 		end := a.subRegionCursors[ix].value.Load()
-		if end < lower {
-			end = lower
+
+		// Skip empty sub-regions early (sparse-write optimization)
+		if end <= lower {
+			continue
 		}
 
 		if end > upper {
@@ -123,7 +124,7 @@ func (ing *Ingestor) flushArenaPerRegion(a *arena) {
 			}
 
 			if bytesWritten == 0 {
-				ing.Registry.loadError(ErrWriterNoProgress)
+				ing.Registry.loadError(errWriterNoProgress)
 
 				return
 			}
@@ -135,14 +136,7 @@ func (ing *Ingestor) flushArenaPerRegion(a *arena) {
 
 // flushOnShutdown flushes both arenas best-effort.
 func (ing *Ingestor) flushOnShutdown() {
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(ing.millisecondsUnblock)*time.Millisecond,
-	)
-	defer cancel()
-
-	// First rotation: seal whatever is currently active (call it A).
-	firstSealed := ing.rotate()
+	firstSealed := ing.rotate() // First rotation: seal whatever is currently active (call it A).
 
 	// Second rotation: seal the other arena (B) which just became active.
 	// Any producer that got bumped from A by the first rotate and retried
@@ -168,10 +162,7 @@ func (ing *Ingestor) flushOnShutdown() {
 	// Flush second-sealed first (it became active most recently,
 	// producers who retried land here — wait for them first).
 	if secondSealed != nil {
-		if errWriteSecond := ing.waitForWritersCtx(
-			ctx,
-			secondSealed,
-		); errWriteSecond == nil {
+		if errWriteSecond := ing.waitForWriters(secondSealed); errWriteSecond == nil {
 			ing.flusher(secondSealed)
 		} else {
 			ing.Registry.Inc(TErrDroppedSealedData)
@@ -180,10 +171,7 @@ func (ing *Ingestor) flushOnShutdown() {
 
 	// Flush first-sealed.
 	if firstSealed != nil && firstSealed != secondSealed {
-		if errWriteFirst := ing.waitForWritersCtx(
-			ctx,
-			firstSealed,
-		); errWriteFirst == nil {
+		if errWriteFirst := ing.waitForWriters(firstSealed); errWriteFirst == nil {
 			ing.flusher(firstSealed)
 		} else {
 			ing.Registry.Inc(TErrDroppedSealedData)

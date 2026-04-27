@@ -3,15 +3,15 @@ package bytearena
 import "errors"
 
 var (
-	ErrWriteNoActiveArena       = errors.New("write: no active arena")
-	ErrWriteActiveArenaMismatch = errors.New("write: active arena mismatch")
-	ErrWriteSubRegionFull       = errors.New("write: subregion full")
+	errWriteNoActiveArena       = errors.New("write: no active arena")
+	errWriteActiveArenaMismatch = errors.New("write: active arena mismatch")
+	errWriteSubRegionFull       = errors.New("write: subregion full")
 
-	ErrWriteMessageTooLarge = errors.New("write: message too large")
-	ErrWriteShuttingDown    = errors.New("write: shutting down")
+	errWriteMessageTooLarge = errors.New("write: message too large")
+	errWriteShuttingDown    = errors.New("write: shutting down")
 
-	ErrWriterNoProgress  = errors.New("writer: no progress")
-	ErrDroppedSealedData = errors.New("dropped: sealed arena data")
+	errWriterNoProgress      = errors.New("writer: no progress")
+	errTimeoutWaitForWriters = errors.New("tick: timeout waiting for writers")
 )
 
 type errorType uint64

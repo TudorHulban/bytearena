@@ -12,32 +12,38 @@ import (
 //
 // It does NOT loop indefinitely and does NOT block.
 func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
+	var (
+		region        writeRegion
+		errWriteFirst error
+	)
+
 	// First attempt.
-	region, errWrite := ing.beginWrite(n)
-	if errWrite == nil {
+	region, errWriteFirst = ing.beginWrite(n)
+	if errWriteFirst == nil {
 		return region, nil
 	}
 
 	// Do not retry permanently oversized messages.
 	// errors.Is is too slow.
-	if errWrite == ErrWriteMessageTooLarge { //nolint:errorlint
+	if errWriteFirst == errWriteMessageTooLarge { //nolint:errorlint
 		ing.Registry.Inc(TErrWriteMessageTooLarge)
 
-		return writeRegion{}, errWrite
+		return writeRegion{}, errWriteFirst
 	}
 
-	ing.Registry.loadError(errWrite)
+	var errWriteSecond error
 
 	// Reload active arena — rotation may have occurred.
-	// Second attempt.
-	region, errWrite = ing.beginWrite(n)
-	if errWrite != nil {
-		ing.Registry.loadError(errWrite)
+	// Second attempt,
+	// also loads to error registry if error as final failure.
+	region, errWriteSecond = ing.beginWrite(n)
+	if errWriteSecond != nil {
+		ing.Registry.loadError(errWriteSecond)
 
-		return writeRegion{}, errWrite
+		return writeRegion{}, errWriteSecond
 	}
 
-	return region, errWrite
+	return region, nil
 }
 
 // beginWrite attempts to reserve n bytes in the current active arena.
@@ -54,13 +60,13 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 	if toReserve > ing.maxMessageSize {
 		return writeRegion{},
-			ErrWriteMessageTooLarge
+			errWriteMessageTooLarge
 	}
 
 	arena := ing.active.Load()
 	if arena == nil {
 		return writeRegion{},
-			ErrWriteNoActiveArena
+			errWriteNoActiveArena
 	}
 
 	arena.Enter()
@@ -69,7 +75,7 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 		arena.Leave()
 
 		return writeRegion{},
-			ErrWriteActiveArenaMismatch
+			errWriteActiveArenaMismatch
 	}
 
 	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
@@ -83,7 +89,7 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 		ing.signalFlush()
 
 		return writeRegion{},
-			ErrWriteSubRegionFull
+			errWriteSubRegionFull
 	}
 
 	offset, errReserve := ing.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
@@ -124,14 +130,14 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 	region, errTryWrite = ing.TryWrite(n)
 
 	// If the arena was full, wait for the consumer to rotate, then retry once.
-	if errTryWrite == ErrWriteSubRegionFull { //nolint:errorlint
+	if errTryWrite == errWriteSubRegionFull { //nolint:errorlint
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
-		if staleArena == nil || ing.isStopped.Load() {
+		if staleArena == nil { // || ing.isStopped.Load()
 			ing.Registry.Inc(TErrWriteShuttingDown)
 
-			return ErrWriteShuttingDown
+			return errWriteShuttingDown
 		}
 
 		staleEpoch := staleArena.epoch.Load()
@@ -140,13 +146,8 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		// When the consumer recycles arena A (after the double rotation), reset() bumps stale.epoch,
 		// the second condition goes false,
 		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
+		// No isStopped check needed: nil active already breaks the condition.
 		for ing.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
-			if ing.isStopped.Load() { // ← consumer is gone, bail out
-				ing.Registry.Inc(TErrWriteShuttingDown)
-
-				return ErrWriteShuttingDown
-			}
-
 			runtime.Gosched()
 		}
 
@@ -154,6 +155,13 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 		region, errWrite = ing.beginWrite(n)
 		if errWrite != nil {
+			// active is nil → this is a shutdown, reclassify the error
+			if ing.active.Load() == nil {
+				ing.Registry.Inc(TErrWriteShuttingDown)
+
+				return errWriteShuttingDown
+			}
+
 			return errWrite
 		}
 

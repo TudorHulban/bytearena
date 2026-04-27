@@ -44,8 +44,8 @@ func Test_01_1_Ingestor_SingleWrite(t *testing.T) {
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
-	require.True(t,
-		ingestor.isStopped.Load(),
+	require.Nil(t,
+		ingestor.active.Load(),
 	)
 
 	require.Equal(t,
@@ -80,14 +80,14 @@ func Test_01_2_Ingestor_SingleWrite_Parallel(t *testing.T) {
 			)
 		},
 
-		ErrWriteShuttingDown,
+		errWriteShuttingDown,
 	)
 
 	cancel()
 	<-chIngestionEnd
 
-	require.True(t,
-		ingestor.isStopped.Load(),
+	require.Nil(t,
+		ingestor.active.Load(),
 	)
 }
 
@@ -113,14 +113,14 @@ func Test_01_3_Ingestor_ioWriter_Parallel(t *testing.T) {
 			return errWrite
 		},
 
-		ErrWriteShuttingDown,
+		errWriteShuttingDown,
 	)
 
 	cancel()
 	<-chIngestionEnd
 
-	require.True(t,
-		ingestor.isStopped.Load(),
+	require.Nil(t,
+		ingestor.active.Load(),
 	)
 }
 
@@ -131,7 +131,7 @@ func Test_01_4_CustomFlusherInvoked(t *testing.T) {
 	ingestor, errCrIngestor := NewIngestor(
 		_Size1K,
 		&writer,
-		WithTickMilliseconds(1),
+		WithTickThresholdMilliseconds(1),
 	)
 	require.NoError(t, errCrIngestor)
 

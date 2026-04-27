@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -107,10 +108,16 @@ func BenchmarkIngestor_External(b *testing.B) {
 	<-chIngestionEnd
 }
 
-// go test -run '^$' -bench '^BenchmarkIngestor_Region_Parallel$' -benchmem -race
+// go test -run '^$' -bench '^BenchmarkLogger_Parallel$' -benchmem -race
 
-// BenchmarkIngestor_Region_Parallel-16    	24276568	        56.08 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkIngestor_Region_Parallel(b *testing.B) {
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkLogger_Parallel/gomaxprocs=1-16         	37631481	        31.82 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkLogger_Parallel/gomaxprocs=2-16         	15584614	        81.69 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkLogger_Parallel/gomaxprocs=8-16         	20943333	        66.29 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkLogger_Parallel/gomaxprocs=16-16        	22825214	        54.55 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkLogger_Parallel(b *testing.B) {
+	gomaxValues := []int{1, 2, 8, 16}
+
 	ingestor, _ := bytearena.NewIngestor(
 		bytearena.Size4M(),
 		&helpers.NoopWriter{},
@@ -121,27 +128,37 @@ func BenchmarkIngestor_Region_Parallel(b *testing.B) {
 
 	time.Sleep(10 * time.Millisecond) // warmup
 
-	b.ReportAllocs()
-	b.SetParallelism(16)
-	b.ResetTimer()
+	for _, v := range gomaxValues {
+		b.Run(
+			fmt.Sprintf("gomaxprocs=%d", v),
+			func(b *testing.B) {
+				prev := runtime.GOMAXPROCS(v)
+				defer runtime.GOMAXPROCS(prev)
 
-	b.RunParallel(
-		func(pb *testing.PB) {
-			for pb.Next() {
-				region, errWrite := ingestor.TryWrite(32)
-				if errWrite != nil {
-					continue
-				}
+				b.SetParallelism(16)
+				b.ReportAllocs()
+				b.ResetTimer()
 
-				copy(
-					region.Buf(),
-					[]byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+				b.RunParallel(
+					func(pb *testing.PB) {
+						for pb.Next() {
+							region, errWrite := ingestor.TryWrite(32)
+							if errWrite != nil {
+								continue
+							}
+
+							copy(
+								region.Buf(),
+								[]byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+							)
+
+							ingestor.EndWrite(region)
+						}
+					},
 				)
-
-				ingestor.EndWrite(region)
-			}
-		},
-	)
+			},
+		)
+	}
 
 	cancel()
 	<-chIngestionEnd

@@ -67,20 +67,20 @@ func Test_BlockedProducer(t *testing.T) {
 
 	fmt.Println("phase 2:", phase2E1, phase2E2) // 0,0
 
-	require.False(t, ingestor.isStopped.Load())
+	require.NotNil(t,
+		ingestor.active.Load(),
+	)
 
 	cancel() // unblocks stuck producer
 
 	// Wait for consumer shutdown flush.
 	<-chIngestionEnd
 
-	require.True(t,
-		ingestor.isStopped.Load(),
+	require.Nil(t,
+		ingestor.active.Load(),
 	)
 
 	phase3E1, phase3E2 := ingestor.GetArenaEpochs()
-
-	require.True(t, ingestor.isStopped.Load())
 
 	fmt.Println("phase 3:", phase3E1, phase3E2)
 
