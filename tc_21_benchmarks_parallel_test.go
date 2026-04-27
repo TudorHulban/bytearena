@@ -58,7 +58,7 @@ func BenchmarkIngestor_Parallel(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_Parallel_BytesWritten$' -benchmem
 // go test -run '^$' -bench '^BenchmarkIngestor_Parallel_BytesWritten$' -benchmem -race
 
-// BenchmarkIngestor_Parallel_BytesWritten-16    	33379717	        37.31 ns/op	      96 B/op	       0 allocs/op
+// BenchmarkIngestor_Parallel_BytesWritten-16    	33658668	        46.24 ns/op	     159 B/op	       0 allocs/op
 func BenchmarkIngestor_Parallel_BytesWritten(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 

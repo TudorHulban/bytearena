@@ -35,25 +35,13 @@ type Ingestor struct { //nolint:govet
 	// ── Cache line 0 ─────────────────────────────── Hot ──
 	// Producers read this atomically on every write.
 	active atomic.Pointer[arena]
-	_      [56]byte
+	_      [55]byte
 
 	// ── Cache line 1 ─────────────────────────────── Hot ──
 	counterRequests atomic.Uint64
 	_               [56]byte
 
-	// ── Cache line 2 ─────────────────────────────── Hot ──
-	// atomic.Bool is backed by uint32 (4 B); withTelemetry
-	// is read in the same hot path, so it shares this line.
-	isStopped atomic.Bool
-
-	// Allocate isolated buffer (no memory aliasing).
-	// Used with WithIsolatedBufferFlusher.
-	flushScratch []byte // 24 bytes
-
-	withTelemetry bool
-	_             [35]byte // should be 59 if moving flushScratch to own cache line
-
-	// ── Cache line 3 ─────────────────────────── Cold / IO ──
+	// ── Cache line 2 ─────────────────────────── Cold / IO ──
 	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
 	writer          io.Writer
 	writerTelemetry io.Writer
@@ -61,7 +49,7 @@ type Ingestor struct { //nolint:govet
 	flusher         func(a *arena)
 	chFlush         chan struct{}
 
-	// ── Cache line 4 ──────────────────────── Cold / Arena ──
+	// ── Cache line 3 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
 	arenaFirst             *arena
 	arenaSecond            *arena
@@ -72,11 +60,23 @@ type Ingestor struct { //nolint:govet
 	millisecondsTickIfData uint16
 	millisecondsUnblock    uint16
 
-	// ── Cache line 5+ ─────────────────────────────── Cold ──
-	Registry                  ErrorsRegistry
-	Metrics                   Metrics
-	subRegions                [8]subRegion
-	millisecondsTickThreshold uint8
+	// ── Cache line 4 ─────────────────────── Cold / Consumer ──
+	// flushScratch written every flush cycle (consumer-only).
+	// Isolated here so flush writes never dirty the hot producer lines (0–2).
+	// millisecondsTickThreshold co-located: same cold init-time access pattern.
+	// 24 + 1 + 39 = 64 B exact.
+	flushScratch              []byte // 24 bytes
+	millisecondsTickThreshold uint8  //  1 byte
+	withTelemetry             bool   // 1 byte
+	_                         [38]byte
+
+	// ── Cache line 5 ─────────────────────── Cold / SubRegions ──
+	// Read-only after init. 8×{Lower,Upper uint32} = 64 B exact.
+	subRegions [8]subRegion
+
+	// ── Cache line 6+ ──────────────────────────────── Cold ──
+	Registry ErrorsRegistry // 10×64 = 640 B, internally cache-line padded
+	Metrics  Metrics        //         16 B
 }
 
 // NewIngestor allocates two arenas of the given size and initializes
@@ -174,7 +174,6 @@ func (ing *Ingestor) consumerLoop(ctx context.Context) {
 		select {
 		case <-chDone:
 			// Shutdown: flush both arenas best-effort.
-			ing.isStopped.Store(true)
 			ing.flushOnShutdown()
 
 			return

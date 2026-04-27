@@ -134,7 +134,7 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		// flushOnShutdown sets active to nil as a sentinel after the double-rotate.
 		// If we see nil here (or isStopped is already set), bail out immediately.
 		// Without this guard, staleArena.epoch.Load() would panic on a nil pointer.
-		if staleArena == nil || ing.isStopped.Load() {
+		if staleArena == nil { // || ing.isStopped.Load()
 			ing.Registry.Inc(TErrWriteShuttingDown)
 
 			return errWriteShuttingDown
@@ -146,13 +146,8 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 		// When the consumer recycles arena A (after the double rotation), reset() bumps stale.epoch,
 		// the second condition goes false,
 		// the goroutine exits the loop and calls beginWrite on the fresh arena with no deadlock.
+		// No isStopped check needed: nil active already breaks the condition.
 		for ing.active.Load() == staleArena && staleArena.epoch.Load() == staleEpoch {
-			if ing.isStopped.Load() { // ← consumer is gone, bail out
-				ing.Registry.Inc(TErrWriteShuttingDown)
-
-				return errWriteShuttingDown
-			}
-
 			runtime.Gosched()
 		}
 
@@ -160,6 +155,13 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 		region, errWrite = ing.beginWrite(n)
 		if errWrite != nil {
+			// active is nil → this is a shutdown, reclassify the error
+			if ing.active.Load() == nil {
+				ing.Registry.Inc(TErrWriteShuttingDown)
+
+				return errWriteShuttingDown
+			}
+
 			return errWrite
 		}
 
