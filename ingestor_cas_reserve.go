@@ -13,8 +13,14 @@ func (*Ingestor) reserveBytes(cursor *atomic.Uint32, toReserve uint32, lower, up
 	for {
 		cur := cursor.Load()
 
+		// The cursor is initialized to Lower in resetSubRegions
+		// and only ever moves forward via CAS (adding positive values).
+		// It cannot go below lower after initialization,
+		// and waitForWriters guarantees no writers are active before reset runs.
+		// This is why below does not check cur < lower.
+
 		// Check bounds: cur must be within [lower, limit] to reserve [cur, cur+n)
-		if cur < lower || cur > limit {
+		if cur > limit {
 			return 0,
 				errWriteSubRegionFull
 		}

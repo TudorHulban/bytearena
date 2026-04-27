@@ -100,7 +100,7 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		maxMessageSize: regionSize,
 
 		arenaSealPercentage:       90,
-		millisecondsTickIfData:    700,
+		millisecondsTickIfData:    1000,
 		millisecondsTickThreshold: 50,
 		millisecondsUnblock:       50,
 	}

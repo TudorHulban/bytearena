@@ -48,7 +48,7 @@ Producers never interact with arenas directly and do not need to be reconfigured
 Internally, `Write` delegates through:
 
 ```text
-Write → write → tryWrite → beginWrite → reserveBytes → deffered end write — signals end of a write by decrementing the number of writers
+Write → write → TryWrite → beginWrite → reserveBytes → defered End write — signals end of a write by decrementing the number of writers
 ```
 
 ### Direct copy to the arena
@@ -108,10 +108,10 @@ Near the end of an arena many producers may attempt reservations concurrently. S
 
 ## 5. Consumer Monitoring Loop
 
-The consumer's `tick()` is driven by three event sources:
+The consumer's `tick()` is driven by below event sources:
 
-1. A configurable periodic ticker for normal traffic (`WithTickThresholdMilliseconds`).
-2. A configurable periodic ticker for low traffic (`WithTickIfDataMilliseconds`).
+1. A configurable periodic ticker for normal traffic (`tickThreshold`, `WithTickThresholdMilliseconds`).
+2. A configurable periodic ticker for low traffic (`tickIfData`, `WithTickIfDataMilliseconds`).
 3. A non‑blocking flush channel (`chFlush`) signaled by producers on rollback.
 4. Context cancellation (initiates shutdown).
 
@@ -134,7 +134,7 @@ X is sealed: no new writes will start on it. Producers already past the active c
 
 ## 7. Waiting for Writers to Finish
 
-After sealing arena X the consumer calls `waitForWritersCtx`, which blocks until `numberWriters == 0` using adaptive backoff:
+After sealing arena X the consumer calls `waitForWriters`, which blocks until `numberWriters == 0` using adaptive backoff:
 
 | Spin count | Strategy |
 |---|---|
@@ -211,7 +211,7 @@ active.Store(nil)          // close the door — no new producers enter
 
 The double rotation captures any producer that was bumped from A and retried into B. Setting active to `nil` causes all subsequent `beginWrite` calls to return `ErrWriteNoActiveArena` immediately.
 
-Flush order: `secondSealed` first (producers who retried may still be draining), then `firstSealed`. Each flush is guarded by `waitForWritersCtx` with the same configurable timeout.
+Flush order: `secondSealed` first (producers who retried may still be draining), then `firstSealed`. Each flush is guarded by `waitForWriters` with the same configurable timeout.
 
 ## 11. Design Guarantees
 
@@ -268,7 +268,7 @@ Payload used in most cases is  32 bytes (fixed, to isolate allocator and content
 
 ### 3. Parallelism
 
-Parallelism used is 16 with most seminificative GOMAXPROCS values 1 and 2.  
+Parallelism used is 16 with most significant GOMAXPROCS values 1 and 2.  
 The jump between GOMAXPROCS = 1 and GOMAXPROCS = 2 helps understand the system behavior with even higher values.
 
 ### 4. Test Stabilization

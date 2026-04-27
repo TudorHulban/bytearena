@@ -182,7 +182,7 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 				<-chIngestionEnd
 
 				// Now metrics are stable
-				cas := ingestor.Metrics.NumberCAS.Load()
+				cas := ingestor.Metrics.numberCAS.Load()
 				b.ReportMetric(float64(cas)/float64(b.N), "CAS/op")
 			},
 		)
