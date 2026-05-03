@@ -194,10 +194,8 @@ func BenchmarkFmtSprintf(b *testing.B) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
+		var anyArgs []any // Prebuild []any once per test case to avoid per-iteration conversions.
 
-		// Prebuild []any once per test case to avoid per-iteration conversions.
-		var anyArgs []any
 		if len(tc.args) > 0 {
 			anyArgs = make([]any, len(tc.args))
 			for i, v := range tc.args {
