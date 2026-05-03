@@ -132,10 +132,10 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 
 // without CAS tracking
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	90904914	        13.04 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	19169032	        62.79 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	22707710	        54.67 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	32791422	        38.33 ns/op	         0 CAS/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	90904914	        13.04 ns/op	         	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	19169032	        62.79 ns/op	         	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	22707710	        54.67 ns/op	         	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	32791422	        38.33 ns/op	         	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 	noP := []int{1, 2, 6, 12}
 
