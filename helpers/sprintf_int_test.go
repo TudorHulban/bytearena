@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -97,6 +98,120 @@ func TestSprintfInt(t *testing.T) {
 
 				got := SprintfInt(tc.format, tc.args...)
 				require.Equal(t, tc.want, got)
+			},
+		)
+	}
+}
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkSprintfInt/1._empty_format-16         	571454272	         2.063 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkSprintfInt/2._percent_but_no_d-16     	84472520	        13.97 ns/op	       2 B/op	       1 allocs/op
+// BenchmarkSprintfInt/3._percent_d_but_no_args-16         	83182386	        13.60 ns/op	       2 B/op	       1 allocs/op
+// BenchmarkSprintfInt/4._fewer_args_than_placeholders-16  	54669860	        21.01 ns/op	       4 B/op	       1 allocs/op
+// BenchmarkSprintfInt/5._single_placeholder-16            	38617876	        32.29 ns/op	       8 B/op	       1 allocs/op
+// BenchmarkSprintfInt/6._multiple_placeholders-16         	35945548	        31.84 ns/op	       5 B/op	       1 allocs/op
+// BenchmarkSprintfInt/7._interleaved-16                   	40689417	        28.43 ns/op	       5 B/op	       1 allocs/op
+// BenchmarkSprintfInt/8._negative_ints-16                 	37767238	        30.63 ns/op	       8 B/op	       1 allocs/op
+// BenchmarkSprintfInt/9._no_placeholders-16               	80175160	        14.07 ns/op	       3 B/op	       1 allocs/op
+// BenchmarkSprintfInt/10._invalid_percent_sequence-16     	68889207	        16.07 ns/op	       4 B/op	       1 allocs/op
+// BenchmarkSprintfInt/11._mixed_valid_and_invalid-16      	38229586	        29.89 ns/op	       8 B/op	       1 allocs/op
+
+func BenchmarkSprintfInt(b *testing.B) {
+	b.ReportAllocs()
+
+	tests := []struct {
+		description string
+		format      string
+		args        []int
+	}{
+		// 1. Error-like cases
+		{"1. empty format", "", nil},
+		{"2. percent but no d", "%x", []int{42}},
+		{"3. percent d but no args", "%d", nil},
+		{"4. fewer args than placeholders", "%d %d", []int{7}},
+
+		// 2. Normal cases
+		{"5. single placeholder", "value=%d", []int{10}},
+		{"6. multiple placeholders", "%d-%d-%d", []int{1, 2, 3}},
+		{"7. interleaved", "A%dB%dC", []int{9, 8}},
+		{"8. negative ints", "%d %d", []int{-1, -200}},
+		{"9. no placeholders", "abc", []int{1, 2, 3}},
+		{"10. invalid percent sequence", "x%yz", []int{5}},
+		{"11. mixed valid and invalid", "%d %q %d", []int{1, 2}},
+	}
+
+	for _, tc := range tests {
+		b.Run(
+			tc.description,
+			func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					out := SprintfInt(tc.format, tc.args...)
+					_ = out
+				}
+			},
+		)
+	}
+}
+
+// cpu: AMD Ryzen 7 5800H with Radeon Graphics
+// BenchmarkFmtSprintf/1._empty_format-16         	68209120	        17.30 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkFmtSprintf/2._percent_but_no_d-16     	26884616	        44.47 ns/op	       2 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/3._percent_d_but_no_args-16         	26502403	        43.88 ns/op	      16 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/4._fewer_args_than_placeholders-16  	18306931	        69.06 ns/op	      16 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/5._single_placeholder-16            	22201204	        52.57 ns/op	       8 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/6._multiple_placeholders-16         	13228581	        88.90 ns/op	       5 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/7._interleaved-16                   	15413917	        75.98 ns/op	       5 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/8._negative_ints-16                 	17407816	        67.55 ns/op	       8 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/9._no_placeholders-16               	 9771336	       122.6 ns/op	      32 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/10._invalid_percent_sequence-16     	16183243	        73.65 ns/op	      16 B/op	       1 allocs/op
+// BenchmarkFmtSprintf/11._mixed_valid_and_invalid-16      	12678960	        91.66 ns/op	      24 B/op	       1 allocs/op
+
+func BenchmarkFmtSprintf(b *testing.B) {
+	b.ReportAllocs()
+
+	tests := []struct {
+		description string
+		format      string
+		args        []int
+	}{
+		// 1. Error-like cases
+		{"1. empty format", "", nil},
+		{"2. percent but no d", "%x", []int{42}},
+		{"3. percent d but no args", "%d", nil},
+		{"4. fewer args than placeholders", "%d %d", []int{7}},
+
+		// 2. Normal cases
+		{"5. single placeholder", "value=%d", []int{10}},
+		{"6. multiple placeholders", "%d-%d-%d", []int{1, 2, 3}},
+		{"7. interleaved", "A%dB%dC", []int{9, 8}},
+		{"8. negative ints", "%d %d", []int{-1, -200}},
+		{"9. no placeholders", "abc", []int{1, 2, 3}},
+		{"10. invalid percent sequence", "x%yz", []int{5}},
+		{"11. mixed valid and invalid", "%d %q %d", []int{1, 2}},
+	}
+
+	for _, tc := range tests {
+		var anyArgs []any // Prebuild []any once per test case to avoid per-iteration conversions.
+
+		if len(tc.args) > 0 {
+			anyArgs = make([]any, len(tc.args))
+			for i, v := range tc.args {
+				anyArgs[i] = v
+			}
+		}
+
+		b.Run(
+			tc.description,
+			func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					_ = fmt.Sprintf(tc.format, anyArgs...)
+				}
 			},
 		)
 	}
