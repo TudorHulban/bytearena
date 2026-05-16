@@ -4,8 +4,11 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
+
+	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // memory fieldalignment is entirely ignorant of cache lines.
@@ -77,7 +80,15 @@ type Ingestor struct { //nolint:govet
 	// ── Cache line 6+ ──────────────────────────────── Cold ──
 	Registry ErrorsRegistry // 10×64 = 640 B, internally cache-line padded
 	Metrics  Metrics        //         16 B
+
+	counter *helpers.CPUCounter
+	noCores uint8
 }
+
+// TODO:
+// NewIngestor1Core
+// NewIngestorMultipleCores
+// NewIngestorAutoadjust
 
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
@@ -103,6 +114,9 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		millisecondsTickIfData:    1000,
 		millisecondsTickThreshold: 50,
 		millisecondsUnblock:       50,
+
+		counter: helpers.NewCPUCounter(),
+		noCores: uint8(runtime.NumCPU()),
 	}
 
 	result.flusher = result.flushArenaPerRegion
