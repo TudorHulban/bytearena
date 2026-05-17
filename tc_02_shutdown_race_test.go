@@ -25,7 +25,7 @@ func Test_FlushOnShutdown_DoubleRotate_Race(t *testing.T) {
 
 	// Step 2: Simulate a concurrent producer hitting the hot path
 	// at the exact millisecond shutdown is called.
-	go func() {
+	go func() { //nolint:modernize
 		defer wgProducer.Done()
 
 		// Allocate space on the currently active arena (Arena A)
