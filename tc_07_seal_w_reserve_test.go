@@ -11,7 +11,7 @@ import (
 
 // Test Case: Race Between Reserve and Seal
 
-func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
+func Test_07_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
@@ -85,7 +85,7 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	)
 }
 
-func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
+func Test_07_2_NoWriteAfterArenaReuse(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)

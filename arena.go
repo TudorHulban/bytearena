@@ -35,9 +35,18 @@ type arena struct { //nolint:govet
 	rollbackCounter atomic.Int32
 	_               [60]byte // pad to 64 bytes
 
+	// Block 4: 512 Bytes (8 * 64).
+	// Starts exactly at byte 192. Every cursor aligns perfectly to a hardware cache line.
+	subRegionCursors [8]paddedCursor
+
 	// buf is the underlying byte storage for this arena.
 	// Its capacity defines the arena size.
+
+	// --- HOT DATA ZONE BOUNDARY (Byte 704) ---
+	// 704 is a perfect multiple of 64 (64 * 11).
+	// This places the heavily used slice header on its own fresh cache line!
 	buf []byte
+	_   [40]byte // Pad the rest of buf's cache line (24 + 40 = 64)
 
 	telemetryObservableRollback func(add uint64)
 
@@ -47,7 +56,7 @@ type arena struct { //nolint:govet
 	subRegions [8]subRegion
 
 	// Per-subregion CAS cursors: one atomic counter per shard
-	subRegionCursors [8]paddedCursor
+	// subRegionCursors [8]paddedCursor
 }
 
 func newArena(arenaSize uint32, subRegions [8]subRegion) *arena {

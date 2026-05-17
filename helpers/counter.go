@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	_ "unsafe"
+	_ "unsafe" //nolint:revive
 )
 
 // Thread safety is achieved through a two-layer defense mechanism:
@@ -25,8 +25,8 @@ func procPin() int
 func procUnpin()
 
 type PaddedSlot struct {
-	value   uint64
-	padding [7]uint64 // 64-byte alignment to prevent false sharing
+	value uint64
+	_     [7]uint64 // 64-byte alignment to prevent false sharing
 }
 
 type CPUCounter struct {
@@ -34,8 +34,16 @@ type CPUCounter struct {
 }
 
 func NewCPUCounter() *CPUCounter {
+	slots := make([]PaddedSlot, runtime.GOMAXPROCS(0))
+
+	for i := range slots {
+		// Stagger the initial values so the first increment
+		// lands on a completely different index & 7 per core
+		slots[i].value = uint64(i)
+	}
+
 	return &CPUCounter{
-		slots: make([]PaddedSlot, runtime.GOMAXPROCS(0)),
+		slots: slots,
 	}
 }
 

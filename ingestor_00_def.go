@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -41,8 +40,11 @@ type Ingestor struct { //nolint:govet
 	_      [55]byte
 
 	// ── Cache line 1 ─────────────────────────────── Hot ──
-	counterRequests atomic.Uint64
-	_               [56]byte
+	// Promoted pointer. Producers read this address on every write.
+	// 8 bytes pointer + 56 bytes padding = 64 B exact.
+	// switch to atomic.UInt64 on single core hosts.
+	counter *helpers.CPUCounter
+	_       [56]byte
 
 	// ── Cache line 2 ─────────────────────────── Cold / IO ──
 	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
@@ -81,8 +83,6 @@ type Ingestor struct { //nolint:govet
 	Registry ErrorsRegistry // 10×64 = 640 B, internally cache-line padded
 	Metrics  Metrics        //         16 B
 
-	counter *helpers.CPUCounter
-	noCores uint8
 }
 
 // TODO:
@@ -116,7 +116,6 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		millisecondsUnblock:       50,
 
 		counter: helpers.NewCPUCounter(),
-		noCores: uint8(runtime.NumCPU()),
 	}
 
 	result.flusher = result.flushArenaPerRegion

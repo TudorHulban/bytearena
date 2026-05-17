@@ -82,7 +82,7 @@ func BenchmarkIngestor_Parallel(b *testing.B) {
 // BenchmarkIngestor_Parallel_BytesWritten/GOMAXPROCS=3-16         	19635298	        70.94 ns/op	     141 B/op	       0 allocs/op
 // BenchmarkIngestor_Parallel_BytesWritten/GOMAXPROCS=4-16         	22517086	        60.96 ns/op	     127 B/op	       0 allocs/op
 func BenchmarkIngestor_Parallel_BytesWritten(b *testing.B) {
-	gomaxprocsValues := []int{1, 2, 3, 4}
+	gomaxprocsValues := []int{1, 2, 3, 4, 8}
 	payload := []byte("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") // 32 bytes
 
 	for _, g := range gomaxprocsValues {

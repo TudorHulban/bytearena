@@ -78,14 +78,8 @@ func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
 			errWriteActiveArenaMismatch
 	}
 
-	var regionIdx uint64
-
 	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
-	if ing.noCores > 1 {
-		regionIdx = ing.counter.Next() & 7
-	} else {
-		regionIdx = ing.counterRequests.Add(1) & 7
-	}
+	regionIdx := ing.counter.Next() & 7
 
 	subRegion := ing.subRegions[regionIdx]
 
