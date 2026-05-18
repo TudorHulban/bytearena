@@ -132,12 +132,12 @@ func BenchmarkIngestor_Noop_WriteOnly_FastPath(b *testing.B) {
 
 // without CAS tracking
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	90904914	        13.04 ns/op	         	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	19169032	        62.79 ns/op	         	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:6-16         	22707710	        54.67 ns/op	         	       0 B/op	       0 allocs/op
-// BenchmarkIngestor_Noop_Parallel_Custom/parallel:12-16        	32791422	        38.33 ns/op	         	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:1-16         	89756494	        12.93 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:2-16         	22614550	        53.97 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:4-16         	24880786	        49.52 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkIngestor_Noop_Parallel_Custom/parallel:8-16         	26335261	        47.55 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
-	noP := []int{1, 2, 6, 12}
+	noP := []int{1, 2, 4, 8}
 
 	for _, parallel := range noP {
 		b.Run(
@@ -146,6 +146,13 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 				ingestor, _ := NewIngestor(
 					Size4M(),
 					&helpers.NoopWriter{},
+
+					helpers.TernaryWithValueIn(
+						[]int{1},
+						parallel,
+						nil,
+						WithCounterCoreCPU(),
+					),
 				)
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -183,7 +190,9 @@ func BenchmarkIngestor_Noop_Parallel_Custom(b *testing.B) {
 
 				// Now metrics are stable
 				cas := ingestor.Metrics.numberCAS.Load()
-				b.ReportMetric(float64(cas)/float64(b.N), "CAS/op")
+				if cas != 0 {
+					b.ReportMetric(float64(cas)/float64(b.N), "CAS/op")
+				}
 			},
 		)
 	}

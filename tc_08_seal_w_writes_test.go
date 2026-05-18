@@ -13,18 +13,18 @@ import (
 
 // Test: Consumer seals arena while producers are in middle of writing
 // Verifies: In-flight writes complete successfully, no writes to sealed arena
-func TestSealDuringActiveWrites(t *testing.T) {
+func Test_08_SealDuringActiveWrites(t *testing.T) {
 	var writer bytes.Buffer
 
-	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
+	ingestor, errCrIngestor := NewIngestor(Size100K(), &writer)
 	require.NoError(t, errCrIngestor)
 	require.NotNil(t, ingestor)
 
 	var wgProducers sync.WaitGroup
 
-	chWritesStarted := make(chan struct{})
+	noProducers := 12 // Start producers that write slowly
 
-	noProducers := 5 // Start producers that write slowly
+	chWritesStarted := make(chan struct{}, noProducers)
 
 	wgProducers.Add(noProducers)
 
@@ -33,8 +33,13 @@ func TestSealDuringActiveWrites(t *testing.T) {
 			defer wgProducers.Done()
 
 			// Slow write that takes time
-			region, errWrite := ingestor.beginWrite(100)
+			region, errWrite := ingestor.fnBeginWrite(ingestor, 100)
 			if errWrite != nil {
+				t.Errorf(
+					"beginWrite failed unexpectedly: %v",
+					errWrite,
+				)
+
 				return
 			}
 
@@ -45,7 +50,6 @@ func TestSealDuringActiveWrites(t *testing.T) {
 
 			// Write data
 			copy(region.Buf(), bytes.Repeat([]byte("x"), 100))
-
 			ingestor.EndWrite(region)
 		}()
 	}
@@ -63,7 +67,7 @@ func TestSealDuringActiveWrites(t *testing.T) {
 	require.Zero(t, sealedArena.rollbackCounter.Load())
 
 	// Try to write to active arena (should be new one)
-	region, errWrite := ingestor.beginWrite(10)
+	region, errWrite := ingestor.fnBeginWrite(ingestor, 10)
 	require.NoError(t, errWrite)
 
 	// Should be other arena

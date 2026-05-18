@@ -11,7 +11,7 @@ import (
 
 // Test Case: Race Between Reserve and Seal
 
-func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
+func Test_07_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
@@ -85,7 +85,7 @@ func Test_1_DrainIsStable_UnderConcurrentEnter(t *testing.T) {
 	)
 }
 
-func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
+func Test_07_2_NoWriteAfterArenaReuse(t *testing.T) {
 	var writer bytes.Buffer
 
 	ingestor, errCrIngestor := NewIngestor(_Size1K, &writer)
@@ -93,7 +93,7 @@ func Test_2_NoWriteAfterArenaReuse(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	// Step 1: reserve a region but DO NOT write yet
-	region, errWrite := ingestor.beginWrite(64)
+	region, errWrite := ingestor.fnBeginWrite(ingestor, 64)
 	require.NoError(t, errWrite)
 	require.NotZero(t, region)
 
@@ -140,7 +140,7 @@ func Test_3_NoWriteAfterArenaReuse_Offensive(t *testing.T) {
 	ingestor, err := NewIngestor(_Size1K, &writer)
 	require.NoError(t, err)
 
-	region, err := ingestor.beginWrite(64)
+	region, err := ingestor.fnBeginWrite(ingestor, 64)
 	require.NoError(t, err)
 
 	arena := region.arena

@@ -21,7 +21,7 @@ func TestContextCancelDuringWait(t *testing.T) {
 	require.NotNil(t, ingestor)
 
 	// Start a write that never completes
-	region, errWrite := ingestor.beginWrite(100)
+	region, errWrite := ingestor.fnBeginWrite(ingestor, 100)
 	require.NoError(t, errWrite)
 
 	// Don't call EndWrite() - simulate stuck producer

@@ -27,7 +27,7 @@ func Test_BlockedProducer(t *testing.T) {
 	// stuck producer
 
 	// Step 1: reserve a region1 but DO NOT write yet
-	region1, errWrite1 := ingestor.beginWrite(50)
+	region1, errWrite1 := ingestor.fnBeginWrite(ingestor, 50)
 	require.NoError(t, errWrite1)
 	require.NotZero(t, region1)
 
