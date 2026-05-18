@@ -28,6 +28,7 @@ linters:
     - funcorder
     - forcetypeassert
     - gochecknoglobals
+    - gochecknoinits
     - gocognit
     - gocritic
     - godoclint
