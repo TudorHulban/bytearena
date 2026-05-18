@@ -29,7 +29,7 @@ func Test_FlushOnShutdown_DoubleRotate_Race(t *testing.T) {
 		defer wgProducer.Done()
 
 		// Allocate space on the currently active arena (Arena A)
-		region, errWrite := ingestor.beginWrite(uint32(len(payload)))
+		region, errWrite := ingestor.fnBeginWrite(ingestor, uint32(len(payload)))
 		if errWrite != nil {
 			return
 		}

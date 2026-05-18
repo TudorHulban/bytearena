@@ -322,7 +322,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 	regions := make([]writeRegion, 0, 11)
 
 	for i := range 5 {
-		region, err := ingestor.beginWrite(50)
+		region, err := ingestor.fnBeginWrite(ingestor, 50)
 		require.NoError(t, err)
 
 		regions = append(regions, region)
@@ -342,7 +342,7 @@ func Test_ContextCancel_WithPendingWrites_Deterministic(t *testing.T) {
 
 	// Write to arena2 (6 more writers)
 	for i := range 6 {
-		region, err := ingestor.beginWrite(50)
+		region, err := ingestor.fnBeginWrite(ingestor, 50)
 		require.NoError(t, err)
 
 		regions = append(regions, region)

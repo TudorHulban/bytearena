@@ -33,7 +33,7 @@ func Test_08_SealDuringActiveWrites(t *testing.T) {
 			defer wgProducers.Done()
 
 			// Slow write that takes time
-			region, errWrite := ingestor.beginWrite(100)
+			region, errWrite := ingestor.fnBeginWrite(ingestor, 100)
 			if errWrite != nil {
 				t.Errorf(
 					"beginWrite failed unexpectedly: %v",
@@ -67,7 +67,7 @@ func Test_08_SealDuringActiveWrites(t *testing.T) {
 	require.Zero(t, sealedArena.rollbackCounter.Load())
 
 	// Try to write to active arena (should be new one)
-	region, errWrite := ingestor.beginWrite(10)
+	region, errWrite := ingestor.fnBeginWrite(ingestor, 10)
 	require.NoError(t, errWrite)
 
 	// Should be other arena

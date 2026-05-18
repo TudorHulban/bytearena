@@ -61,7 +61,7 @@ func TestReservationAtBoundary(t *testing.T) {
 
 	// Fill each subregion with a 100-byte write (8 writes × 100 bytes = 800 bytes total)
 	for i := range 8 {
-		region, errWrite := ingestor.beginWrite(100)
+		region, errWrite := ingestor.fnBeginWrite(ingestor, 100)
 		require.NoError(t, errWrite, "write %d of 100 bytes should succeed", i)
 		require.NotNil(t, region)
 
@@ -84,7 +84,7 @@ func TestReservationAtBoundary(t *testing.T) {
 	}
 
 	// Now try to write 1 more byte - arena is 100% full, should fail
-	regionExtra, errExtra := ingestor.beginWrite(1)
+	regionExtra, errExtra := ingestor.fnBeginWrite(ingestor, 1)
 
 	// Expect failure: arena physically cannot accept more data
 	require.ErrorIs(t,

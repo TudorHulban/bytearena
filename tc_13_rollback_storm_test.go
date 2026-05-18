@@ -61,7 +61,7 @@ func TestRollbackStorm(t *testing.T) {
 				// Random size between 10-100 bytes
 				size := uint32(10 + rand.Intn(90))
 
-				region, errWrite := ingestor.beginWrite(size)
+				region, errWrite := ingestor.fnBeginWrite(ingestor, size)
 				if errWrite == nil {
 					successes.Add(1)
 					ingestor.EndWrite(region)

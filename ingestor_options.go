@@ -90,3 +90,11 @@ func WithIsolatedBufferFlusher() Options {
 		return nil
 	}
 }
+
+func WithCounterCoreCPU() Options {
+	return func(i *Ingestor) error {
+		i.fnBeginWrite = (*Ingestor).beginWriteCounterCPU
+
+		return nil
+	}
+}

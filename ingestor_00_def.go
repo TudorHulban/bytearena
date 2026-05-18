@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync/atomic"
 	"time"
-
-	"github.com/tudorhulban/bytearena/helpers"
 )
 
 // memory fieldalignment is entirely ignorant of cache lines.
@@ -36,17 +34,11 @@ import (
 type Ingestor struct { //nolint:govet
 	// ── Cache line 0 ─────────────────────────────── Hot ──
 	// Producers read this atomically on every write.
-	active atomic.Pointer[arena]
-	_      [55]byte
+	active       atomic.Pointer[arena]
+	fnBeginWrite beginWrite
+	_            [48]byte
 
-	// ── Cache line 1 ─────────────────────────────── Hot ──
-	// Promoted pointer. Producers read this address on every write.
-	// 8 bytes pointer + 56 bytes padding = 64 B exact.
-	// switch to atomic.UInt64 on single core hosts.
-	counter *helpers.CPUCounter
-	_       [56]byte
-
-	// ── Cache line 2 ─────────────────────────── Cold / IO ──
+	// ── Cache line 1 ─────────────────────────── Cold / IO ──
 	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
 	writer          io.Writer
 	writerTelemetry io.Writer
@@ -54,7 +46,7 @@ type Ingestor struct { //nolint:govet
 	flusher         func(a *arena)
 	chFlush         chan struct{}
 
-	// ── Cache line 3 ──────────────────────── Cold / Arena ──
+	// ── Cache line 2 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
 	arenaFirst             *arena
 	arenaSecond            *arena
@@ -65,7 +57,7 @@ type Ingestor struct { //nolint:govet
 	millisecondsTickIfData uint16
 	millisecondsUnblock    uint16
 
-	// ── Cache line 4 ─────────────────────── Cold / Consumer ──
+	// ── Cache line 3 ─────────────────────── Cold / Consumer ──
 	// flushScratch written every flush cycle (consumer-only).
 	// Isolated here so flush writes never dirty the hot producer lines (0–2).
 	// millisecondsTickThreshold co-located: same cold init-time access pattern.
@@ -75,23 +67,19 @@ type Ingestor struct { //nolint:govet
 	withTelemetry             bool   // 1 byte
 	_                         [38]byte
 
-	// ── Cache line 5 ─────────────────────── Cold / SubRegions ──
+	// ── Cache line 4 ─────────────────────── Cold / SubRegions ──
 	// Read-only after init. 8×{Lower,Upper uint32} = 64 B exact.
 	subRegions [8]subRegion
 
-	// ── Cache line 6+ ──────────────────────────────── Cold ──
+	// ── Cache line 5+ ──────────────────────────────── Cold ──
 	Registry ErrorsRegistry // 10×64 = 640 B, internally cache-line padded
 	Metrics  Metrics        //         16 B
-
 }
-
-// TODO:
-// NewIngestor1Core
-// NewIngestorMultipleCores
-// NewIngestorAutoadjust
 
 // NewIngestor allocates two arenas of the given size and initializes
 // the Manager with a0 as the active arena and a1 as the standby arena.
+//
+// Consider ingestor as singleton.
 func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, error) {
 	subRegions, regionSize := newSubRegions(arenaSize)
 
@@ -115,12 +103,16 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 		millisecondsTickThreshold: 50,
 		millisecondsUnblock:       50,
 
-		counter: helpers.NewCPUCounter(),
+		fnBeginWrite: (*Ingestor).beginWriteCounterAtomic, // Method Expression
 	}
 
 	result.flusher = result.flushArenaPerRegion
 
 	for _, option := range options {
+		if option == nil {
+			continue
+		}
+
 		if errOption := option(&result); errOption != nil {
 			return nil,
 				errOption

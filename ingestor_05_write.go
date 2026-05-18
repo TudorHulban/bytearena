@@ -18,7 +18,7 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 	)
 
 	// First attempt.
-	region, errWriteFirst = ing.beginWrite(n)
+	region, errWriteFirst = ing.fnBeginWrite(ing, n)
 	if errWriteFirst == nil {
 		return region, nil
 	}
@@ -36,7 +36,7 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 	// Reload active arena — rotation may have occurred.
 	// Second attempt,
 	// also loads to error registry if error as final failure.
-	region, errWriteSecond = ing.beginWrite(n)
+	region, errWriteSecond = ing.fnBeginWrite(ing, n)
 	if errWriteSecond != nil {
 		ing.Registry.loadError(errWriteSecond)
 
@@ -44,72 +44,6 @@ func (ing *Ingestor) TryWrite(n uint32) (writeRegion, error) {
 	}
 
 	return region, nil
-}
-
-// beginWrite attempts to reserve n bytes in the current active arena.
-//
-// On success:
-//   - writers-in-flight is incremented
-//   - a region is returned
-//   - caller MUST call EndWrite
-//
-// On failure:
-//   - writers-in-flight is decremented
-//   - reservation if reversed
-//   - rollback counter is incremented
-func (ing *Ingestor) beginWrite(toReserve uint32) (writeRegion, error) {
-	if toReserve > ing.maxMessageSize {
-		return writeRegion{},
-			errWriteMessageTooLarge
-	}
-
-	arena := ing.active.Load()
-	if arena == nil {
-		return writeRegion{},
-			errWriteNoActiveArena
-	}
-
-	arena.Enter()
-
-	if ing.active.Load() != arena {
-		arena.Leave()
-
-		return writeRegion{},
-			errWriteActiveArenaMismatch
-	}
-
-	// Round-robin: select sub-region using request counter (bit-mask for power-of-2)
-	regionIdx := ing.counter.Next() & 7
-
-	subRegion := ing.subRegions[regionIdx]
-
-	// Fast-fail if message does not fit this sub-region
-	if toReserve > (subRegion.Upper - subRegion.Lower) {
-		arena.AddRollback()
-		arena.Leave()
-		ing.signalFlush()
-
-		return writeRegion{},
-			errWriteSubRegionFull
-	}
-
-	offset, errReserve := ing.reserveBytes(&arena.subRegionCursors[regionIdx].value, toReserve, subRegion.Lower, subRegion.Upper)
-	if errReserve != nil {
-		arena.AddRollback()
-		arena.Leave()
-		ing.signalFlush()
-
-		return writeRegion{},
-			errReserve
-	}
-
-	// Success: return write handle
-	return writeRegion{
-			arena:  arena,
-			offset: offset,
-			size:   toReserve,
-		},
-		nil
 }
 
 // write attempts to write n bytes into the active arena.
@@ -154,7 +88,7 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 
 		var errWrite error
 
-		region, errWrite = ing.beginWrite(n)
+		region, errWrite = ing.fnBeginWrite(ing, n)
 		if errWrite != nil {
 			// active is nil → this is a shutdown, reclassify the error
 			if ing.active.Load() == nil {
