@@ -155,7 +155,7 @@ func BenchmarkArena_FormattedPayload(b *testing.B) {
 // go test -run '^$' -bench '^BenchmarkIngestor_End2End$' -benchmem
 
 // cpu: AMD Ryzen 7 5800H with Radeon Graphics
-// BenchmarkIngestor_End2End-16    	57398238	        22.60 ns/op	        11.32 Gb/s	      74 B/op	       0 allocs/op
+// BenchmarkIngestor_End2End-16    	58988364	        24.26 ns/op	        10.55 Gb/s	      72 B/op	       0 allocs/op
 func BenchmarkIngestor_End2End(b *testing.B) {
 	writer := helpers.CountWriterWithBuffer{}
 
@@ -178,10 +178,10 @@ func BenchmarkIngestor_End2End(b *testing.B) {
 	}
 
 	stableTS, ok := helpers.DetectStabilization(
-		helpers.ParamsDetectStabilization[int64]{
+		helpers.ParamsDetectStabilization[uint64]{
 			InitialValue: writer.TotalBytesWritten.Load(),
 
-			GetCurrentValue: func() int64 {
+			GetCurrentValue: func() uint64 {
 				return writer.TotalBytesWritten.Load()
 			},
 
