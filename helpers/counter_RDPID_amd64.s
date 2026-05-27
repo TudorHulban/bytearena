@@ -1,4 +1,4 @@
-//go:build amd64
+//go:build amd64 && !legacy_cpu
 #include "textflag.h"
 
 // func nextAsm(c *CPUCounter) uint64
