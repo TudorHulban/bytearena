@@ -28,13 +28,10 @@ func NewCPUCounter() *CPUCounter {
 	}
 }
 
-// Next is a clean Go method wrapper that the compiler can easily inline.
+// Go method wrapper that the compiler can easily inline.
 func (c *CPUCounter) Next() uint64 {
 	return nextAsm(c)
 }
-
-// Prototype for the naked assembly function defined in counter_amd64.s
-func nextAsm(c *CPUCounter) uint64
 
 func nextPowerOfTwo(n int) int {
 	if n <= 0 {

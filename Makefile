@@ -42,6 +42,10 @@ coverage:
 test-local: 
 	@go test -failfast -count=1 -shuffle=on -cpu=4,8 ./... -json -cover -race | tparse -smallscreen
 
+# Run tests forcing the legacy RDTSCP implementation
+test-legacy: 
+	@go test -tags legacy_cpu -failfast -count=1 -shuffle=on -cpu=4,8 ./... -json -cover -race | tparse -smallscreen
+
 # for when golangci lint does not work
 # 	@fieldalignment ./...
 # 	@gocritic check ./...

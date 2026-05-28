@@ -1,7 +1,7 @@
 # Arena‑Based Ingestor Architecture
 
 The document describes the high‑performance, lock‑free, double‑buffered byte arena system based on atomic region reservation, and writers‑in‑flight tracking.  
-It is designed for **x86**, **Linux** hosts that need high‑throughput ingestion with predictable memory usage and bounded behavior under load.
+It is designed for **x86**, **Linux** hosts that need high‑throughput ingestion with predictable memory usage and bounded behavior under load. While optimized for modern CPUs via RDPID, it provides fallback support for legacy hardware via RDTSCP using the `-tags legacy_cpu` build flag.
 
 ## 1. Overview
 
