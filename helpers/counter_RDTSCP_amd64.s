@@ -36,3 +36,4 @@ TEXT ·nextAsm(SB), NOSPLIT, $0-16
     // 5. Write the returned value to the stack frame allocation
     MOVQ AX, ret+8(FP)
     RET
+    
