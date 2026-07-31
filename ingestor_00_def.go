@@ -39,12 +39,11 @@ type Ingestor struct { //nolint:govet
 	_            [48]byte
 
 	// ── Cache line 1 ─────────────────────────── Cold / IO ──
-	// 3×io.Writer(16) + func(8) + chan(8) = 64 B exact.
-	writer          io.Writer
+	// 4×io.Writer(16)
+	writerMain      io.Writer
+	writerDirect    io.Writer
 	writerTelemetry io.Writer
 	writerErrors    io.Writer
-	flusher         func(a *arena)
-	chFlush         chan struct{}
 
 	// ── Cache line 2 ──────────────────────── Cold / Arena ──
 	// 8+8+32+4+4+4+2+2 = 64 B exact, zero waste.
@@ -61,11 +60,14 @@ type Ingestor struct { //nolint:govet
 	// flushScratch written every flush cycle (consumer-only).
 	// Isolated here so flush writes never dirty the hot producer lines (0–2).
 	// millisecondsTickThreshold co-located: same cold init-time access pattern.
-	// 24 + 1 + 39 = 64 B exact.
+	// 24 + 1 + 39 + 8 + 8 = 64 B exact.
 	flushScratch              []byte // 24 bytes
 	millisecondsTickThreshold uint8  //  1 byte
 	withTelemetry             bool   // 1 byte
-	_                         [38]byte
+
+	flusher func(a *arena)
+	chFlush chan struct{}
+	_       [26]byte
 
 	// ── Cache line 4 ─────────────────────── Cold / SubRegions ──
 	// Read-only after init. 8×{Lower,Upper uint32} = 64 B exact.
@@ -84,7 +86,7 @@ func NewIngestor(arenaSize uint32, w io.Writer, options ...Options) (*Ingestor, 
 	subRegions, regionSize := newSubRegions(arenaSize)
 
 	result := Ingestor{
-		writer:          w,
+		writerMain:      w,
 		writerTelemetry: w,
 		writerErrors:    os.Stdout,
 

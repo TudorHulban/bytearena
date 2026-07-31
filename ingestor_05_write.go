@@ -1,6 +1,7 @@
 package bytearena
 
 import (
+	"io"
 	"runtime"
 )
 
@@ -125,4 +126,8 @@ func (ing *Ingestor) write(n uint32, fn func(destination []byte)) error {
 // Using defer for EndWrite is only safe when the caller is not also waiting for ingestion to drain.
 func (*Ingestor) EndWrite(r writeRegion) {
 	r.arena.Leave()
+}
+
+func (ing *Ingestor) ShareWriter() io.Writer {
+	return ing.writerDirect
 }

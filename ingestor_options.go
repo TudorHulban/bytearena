@@ -98,3 +98,14 @@ func WithCounterCoreCPU() Options {
 		return nil
 	}
 }
+
+// The ingestor does not protect the direct writer.
+//
+// External protection is needed.
+func WithDirectWriter(w io.Writer) Options {
+	return func(i *Ingestor) error {
+		i.writerDirect = w
+
+		return nil
+	}
+}

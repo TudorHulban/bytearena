@@ -73,7 +73,7 @@ func (ing *Ingestor) flushArenaIsolatedBuffer(a *arena) {
 	}
 
 	for len(ing.flushScratch) > 0 {
-		bytesWritten, errWrite := ing.writer.Write(ing.flushScratch)
+		bytesWritten, errWrite := ing.writerMain.Write(ing.flushScratch)
 		if errWrite != nil {
 			ing.Registry.loadError(errWrite)
 
@@ -116,7 +116,7 @@ func (ing *Ingestor) flushArenaPerRegion(a *arena) {
 		data := a.buf[lower:end]
 
 		for len(data) > 0 {
-			bytesWritten, errWrite := ing.writer.Write(data)
+			bytesWritten, errWrite := ing.writerMain.Write(data)
 			if errWrite != nil {
 				ing.Registry.loadError(errWrite)
 
